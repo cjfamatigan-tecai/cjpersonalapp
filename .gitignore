@@ -5,3 +5,13 @@ desktop.ini
 
 # Editor
 .vscode/
+
+# Node
+node_modules/
+
+# Flux database (SQLite) — never commit user data
+server/data.db
+server/data.db-*
+server/*.db
+server/*.db-shm
+server/*.db-wal

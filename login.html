@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-0:#e9e9ec; --card:#fff; --card-bord:#ececef; --ink:#17181a; --ink-2:#3a3b3e;
+      --muted:#9a9ba0; --muted-2:#c2c3c8; --field:#f4f4f6; --field-bord:#e4e4e8;
+      --err:#b42318; --ok:#17181a; --radius:26px;
+      --shadow:0 24px 70px -30px rgba(20,20,25,.4);
+    }
+    :root[data-theme="dark"] {
+      --bg-0:#0e0e10; --card:#1c1d1f; --card-bord:#2a2b2e; --ink:#f2f2f4; --ink-2:#d0d1d4;
+      --muted:#7d7e83; --muted-2:#54555a; --field:#151517; --field-bord:#2c2d31;
+      --err:#f0857d; --shadow:0 24px 70px -30px rgba(0,0,0,.7);
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body {
+      font-family:'Plus Jakarta Sans',system-ui,sans-serif; color:var(--ink);
+      background:var(--bg-0); min-height:100vh; display:grid; place-items:center; padding:24px;
+      -webkit-font-smoothing:antialiased;
+    }
+    body::before {
+      content:""; position:fixed; inset:0; z-index:-1; filter:blur(30px); opacity:.9;
+      background:
+        radial-gradient(55% 50% at 80% 15%, rgba(255,255,255,.9), transparent 60%),
+        radial-gradient(50% 50% at 12% 88%, rgba(255,255,255,.55), transparent 65%),
+        conic-gradient(from 200deg at 65% 40%, #d9d9de, #eeeef1, #d3d3d9, #e9e9ee, #d9d9de);
+    }
+    :root[data-theme="dark"] body::before {
+      background:
+        radial-gradient(55% 50% at 80% 15%, rgba(60,60,68,.5), transparent 60%),
+        radial-gradient(50% 50% at 12% 88%, rgba(40,40,46,.6), transparent 65%),
+        conic-gradient(from 200deg at 65% 40%, #141416, #1c1c20, #141418, #202024, #141416);
+    }
+    .card {
+      width:100%; max-width:410px; background:var(--card); border:1px solid var(--card-bord);
+      border-radius:var(--radius); padding:40px 34px; box-shadow:var(--shadow);
+    }
+    .brand { display:flex; align-items:center; gap:11px; justify-content:center; margin-bottom:26px; }
+    .brand-mark { width:38px; height:38px; border-radius:11px; background:var(--ink); display:grid; place-items:center; color:var(--card); }
+    .brand-mark svg { width:21px; height:21px; }
+    .brand-name { font-weight:800; font-size:23px; letter-spacing:-.02em; }
+    h1 { font-size:23px; font-weight:800; letter-spacing:-.02em; text-align:center; }
+    .sub { text-align:center; color:var(--muted); font-size:14px; margin-top:7px; margin-bottom:26px; }
+    .field { margin-bottom:15px; }
+    label { display:block; font-size:12.5px; font-weight:700; color:var(--ink-2); margin-bottom:7px; }
+    input {
+      width:100%; font-family:inherit; font-size:14.5px; color:var(--ink);
+      background:var(--field); border:1.5px solid var(--field-bord); border-radius:14px;
+      padding:13px 15px; outline:none; transition:border-color .15s, background .15s;
+    }
+    input::placeholder { color:var(--muted-2); }
+    input:focus { border-color:var(--ink); }
+    .row-hidden { display:none; }
+    .btn {
+      width:100%; margin-top:8px; background:var(--ink); color:var(--card); border:none;
+      border-radius:14px; padding:14px; font-family:inherit; font-weight:700; font-size:15px;
+      cursor:pointer; transition:transform .15s, opacity .15s;
+    }
+    .btn:hover { transform:translateY(-1px); }
+    .btn:disabled { opacity:.6; cursor:default; transform:none; }
+    .msg { font-size:13px; font-weight:600; margin-top:14px; text-align:center; min-height:18px; }
+    .msg.err { color:var(--err); }
+    .msg.ok { color:var(--ok); }
+    .switch { text-align:center; margin-top:22px; font-size:13.5px; color:var(--muted); }
+    .switch a { color:var(--ink); font-weight:700; text-decoration:none; cursor:pointer; }
+    .switch a:hover { text-decoration:underline; }
+    .hint { font-size:11.5px; color:var(--muted); margin-top:6px; }
+    .photo-row { display:flex; align-items:center; gap:12px; }
+    .avatar-prev { width:52px; height:52px; border-radius:50%; overflow:hidden; background:var(--field); border:1.5px solid var(--field-bord); display:grid; place-items:center; color:var(--muted); font-size:22px; font-weight:800; flex:none; }
+    .avatar-prev img { width:100%; height:100%; object-fit:cover; }
+    .ghost-btn { font-family:inherit; font-weight:700; font-size:13px; color:var(--ink); background:var(--field); border:1.5px solid var(--field-bord); border-radius:11px; padding:9px 14px; cursor:pointer; }
+    .ghost-btn:hover { border-color:var(--ink); }
+    .ghost-btn.danger { color:var(--err); }
+    .forgot-row { text-align:right; margin-top:9px; }
+    .forgot-row a { font-size:12.5px; color:var(--muted); font-weight:700; text-decoration:none; cursor:pointer; }
+    .forgot-row a:hover { color:var(--ink); text-decoration:underline; }
+    .tagline { text-align:center; margin-top:20px; padding-top:18px; border-top:1px solid var(--card-bord); font-size:12px; color:var(--muted); font-weight:600; line-height:1.55; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7l8-4 8 4-8 4-8-4z" fill="currentColor"/><path d="M4 12l8 4 8-4M4 17l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <span class="brand-name">Flux</span>
+    </div>
+    <h1 id="title">Welcome back</h1>
+    <p class="sub" id="subtitle">Sign in to your dashboard</p>
+
+    <form id="authForm" autocomplete="on" novalidate>
+      <div class="field row-hidden" id="photoField">
+        <label>Profile photo (optional)</label>
+        <div class="photo-row">
+          <div class="avatar-prev" id="signupAvatar">＋</div>
+          <button type="button" class="ghost-btn" id="pickPhoto">Choose photo</button>
+          <button type="button" class="ghost-btn danger row-hidden" id="clearPhoto">Remove</button>
+        </div>
+        <input type="file" id="signupPhoto" accept="image/*" style="display:none" />
+      </div>
+      <div class="field row-hidden" id="nameField">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" placeholder="Christian Jay" autocomplete="name" />
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" placeholder="••••••••" autocomplete="current-password" required />
+        <div class="hint row-hidden" id="pwHint">At least 8 characters.</div>
+        <div class="forgot-row" id="forgotRow"><a href="forgot.html">Forgot password?</a></div>
+      </div>
+      <button class="btn" id="submitBtn" type="submit">Sign in</button>
+      <div class="msg" id="msg"></div>
+    </form>
+
+    <div class="switch" id="switchRow">
+      New here? <a id="switchLink">Create an account</a>
+    </div>
+    <p class="tagline">Your tasks, calendar, analytics and documents in one secure workspace.</p>
+  </div>
+
+  <script>
+    const root = document.documentElement;
+    if (localStorage.getItem('flux-theme')) root.setAttribute('data-theme', localStorage.getItem('flux-theme'));
+
+    let mode = 'login'; // or 'signup'
+    const $ = id => document.getElementById(id);
+    const form = $('authForm'), msg = $('msg'), btn = $('submitBtn');
+
+    function setMode(m) {
+      mode = m;
+      const signup = m === 'signup';
+      $('title').textContent = signup ? 'Create your account' : 'Welcome back';
+      $('subtitle').textContent = signup ? 'Start organizing with Flux' : 'Sign in to your dashboard';
+      $('nameField').classList.toggle('row-hidden', !signup);
+      $('photoField').classList.toggle('row-hidden', !signup);
+      $('pwHint').classList.toggle('row-hidden', !signup);
+      $('forgotRow').classList.toggle('row-hidden', signup);
+      btn.textContent = signup ? 'Create account' : 'Sign in';
+      $('password').setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
+      $('switchRow').innerHTML = signup
+        ? 'Already have an account? <a id="switchLink">Sign in</a>'
+        : 'New here? <a id="switchLink">Create an account</a>';
+      $('switchLink').addEventListener('click', () => setMode(signup ? 'login' : 'signup'));
+      msg.textContent = ''; msg.className = 'msg';
+    }
+    $('switchLink').addEventListener('click', () => setMode('signup'));
+
+    // ---- signup profile photo (optional) ----
+    let avatarDataUrl = null;
+    function resizeImage(file, size) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const c = document.createElement('canvas'); c.width = size; c.height = size;
+            const ctx = c.getContext('2d');
+            const s = Math.min(img.width, img.height);
+            ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+            resolve(c.toDataURL('image/jpeg', 0.82));
+          };
+          img.onerror = reject; img.src = reader.result;
+        };
+        reader.onerror = reject; reader.readAsDataURL(file);
+      });
+    }
+    $('pickPhoto').addEventListener('click', () => $('signupPhoto').click());
+    $('signupPhoto').addEventListener('change', async (e) => {
+      const f = e.target.files[0]; if (!f || !f.type.startsWith('image/')) return;
+      try {
+        avatarDataUrl = await resizeImage(f, 128);
+        $('signupAvatar').innerHTML = `<img src="${avatarDataUrl}" alt="">`;
+        $('clearPhoto').classList.remove('row-hidden');
+      } catch { avatarDataUrl = null; }
+      e.target.value = '';
+    });
+    $('clearPhoto').addEventListener('click', () => {
+      avatarDataUrl = null; $('signupAvatar').textContent = '＋'; $('clearPhoto').classList.add('row-hidden');
+    });
+
+    // if already logged in, go straight to the dashboard
+    fetch('/api/me').then(r => { if (r.ok) location.href = '/dashboard.html'; }).catch(() => {});
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.textContent = ''; msg.className = 'msg';
+      const payload = { email: $('email').value.trim(), password: $('password').value };
+      if (mode === 'signup') payload.name = $('name').value.trim();
+
+      // client-side sanity checks (server re-validates)
+      if (mode === 'signup' && !payload.name) return fail('Please enter your name.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) return fail('Enter a valid email address.');
+      if (payload.password.length < 8) return fail('Password must be at least 8 characters.');
+
+      btn.disabled = true;
+      btn.textContent = mode === 'signup' ? 'Creating…' : 'Signing in…';
+      try {
+        const r = await fetch('/api/' + (mode === 'signup' ? 'signup' : 'login'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) { fail(data.error || 'Something went wrong.'); return; }
+        // save the chosen profile photo (session cookie is set by signup)
+        if (mode === 'signup' && avatarDataUrl) {
+          try { await fetch('/api/prefs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { avatar: avatarDataUrl } }) }); } catch {}
+        }
+        msg.className = 'msg ok';
+        msg.textContent = 'Success, redirecting…';
+        location.href = '/dashboard.html';
+      } catch {
+        fail('Network error. Is the server running?');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+      }
+    });
+
+    function fail(text) { msg.className = 'msg err'; msg.textContent = text; btn.disabled = false; }
+  </script>
+</body>
+</html>

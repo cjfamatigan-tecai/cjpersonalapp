@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux Documents</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/flux.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="side"></aside>
+    <main class="main" id="main">
+      <header class="topbar" id="topbar"></header>
+      <section>
+        <div class="doc-layout">
+          <div class="card pad-sm">
+            <div class="card-head"><div class="card-title">Documents</div><button class="btn" id="newDoc">+ New</button></div>
+            <div class="doc-list" id="docList"></div>
+          </div>
+          <div class="card">
+            <div id="editor" class="editor"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/flux.js"></script>
+  <script>
+    const F = Flux;
+    let docs = [], current = null;
+
+    function timeago(ts) {
+      const s = Math.floor((Date.now() - ts) / 1000);
+      if (s < 60) return 'just now';
+      if (s < 3600) return Math.floor(s / 60) + 'm ago';
+      if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+      return new Date(ts).toLocaleDateString();
+    }
+
+    async function loadList() { docs = (await F.api('/documents')).documents; renderList(); }
+
+    function renderList() {
+      const el = document.getElementById('docList');
+      if (!docs.length) { el.innerHTML = `<div style="color:var(--muted);font-weight:600;padding:12px 4px">No documents yet. Click “+ New”.</div>`; return; }
+      el.innerHTML = docs.map(d => `<button class="doc-item${current && current.id === d.id ? ' active' : ''}" data-id="${d.id}">
+        <div class="di-title"></div><div class="di-ex"></div><div class="di-time">Updated ${timeago(d.updated_at)}</div></button>`).join('');
+      el.querySelectorAll('.doc-item').forEach((b, i) => {
+        b.querySelector('.di-title').textContent = docs[i].title;
+        b.querySelector('.di-ex').textContent = docs[i].excerpt || 'Empty document';
+        b.addEventListener('click', () => open(Number(b.dataset.id)));
+      });
+    }
+
+    async function open(id) {
+      const { document: d } = await F.api('/documents/' + id);
+      current = d; renderEditor(); renderList();
+    }
+
+    function renderEditor() {
+      const el = document.getElementById('editor');
+      if (!current) { el.innerHTML = `<div class="editor-empty">Select a document, or create a new one to start writing.</div>`; return; }
+      el.innerHTML = `
+        <input class="doc-title" id="dTitle" placeholder="Untitled" maxlength="300" />
+        <textarea id="dBody" placeholder="Start writing…"></textarea>
+        <div class="editor-bar">
+          <span class="card-sub" id="dMeta"></span>
+          <div class="row-actions">
+            <button class="btn btn-ghost" id="dDelete">Delete</button>
+            <button class="btn" id="dSave">Save</button>
+          </div>
+        </div>`;
+      document.getElementById('dTitle').value = current.title;
+      document.getElementById('dBody').value = current.body;
+      document.getElementById('dMeta').textContent = 'Updated ' + timeago(current.updated_at);
+      document.getElementById('dSave').addEventListener('click', save);
+      document.getElementById('dDelete').addEventListener('click', del);
+      document.getElementById('dBody').addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+      });
+    }
+
+    async function save() {
+      if (!current) return;
+      const title = document.getElementById('dTitle').value;
+      const body = document.getElementById('dBody').value;
+      const r = await F.api('/documents/' + current.id, 'PATCH', { title, body });
+      current = r.document; docs = r.documents; renderEditor(); renderList(); F.toast('Saved ✓');
+    }
+
+    async function del() {
+      if (!current || !confirm('Delete this document?')) return;
+      const r = await F.api('/documents/' + current.id, 'DELETE');
+      docs = r.documents; current = null; renderEditor(); renderList(); F.toast('Document deleted');
+    }
+
+    document.getElementById('newDoc').addEventListener('click', async () => {
+      const r = await F.api('/documents', 'POST', { title: 'Untitled', body: '' });
+      docs = r.documents; await open(r.id); F.toast('Document created');
+    });
+
+    (async function () {
+      await F.mountShell({ active: 'personal', subtitle: 'Documents', extraNav: F.personalNav('documents') });
+      await loadList();
+      if (docs.length) open(docs[0].id); else renderEditor();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux Statistics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/flux.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="side"></aside>
+    <main class="main" id="main">
+      <header class="topbar" id="topbar"></header>
+
+      <section class="grid g4" id="kpis"></section>
+
+      <section class="grid g3">
+        <div class="card">
+          <div class="card-head"><div class="card-title">Goal completion</div></div>
+          <div style="display:flex;justify-content:center;margin:10px 0" id="goalGauge"></div>
+          <div class="card-sub" id="goalSub" style="text-align:center"></div>
+        </div>
+        <div class="card span-2">
+          <div class="card-head"><div><div class="card-title">Events, next 7 days</div><div class="card-sub">Live from your calendar</div></div></div>
+          <div id="evBars"></div>
+        </div>
+      </section>
+
+      <section class="grid g3">
+        <div class="card">
+          <div class="card-head"><div class="card-title">Content mix</div></div>
+          <div style="display:flex;justify-content:center;margin:6px 0 16px" id="mixDonut"></div>
+          <div class="legend" style="flex-direction:column;gap:10px" id="mixLegend"></div>
+        </div>
+        <div class="card span-2">
+          <div class="card-head"><div class="card-title">Summary</div><span class="card-sub" id="liveTag"></span></div>
+          <div id="summary" class="list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/flux.js"></script>
+  <script>
+    const F = Flux;
+    let stats = null;
+
+    function renderKPIs() {
+      document.getElementById('kpis').innerHTML = [
+        F.kpiTile({ icon: F.I.grid, value: F.fmt(stats.tasks.total), label: 'Active tasks', dark: true }),
+        F.kpiTile({ icon: F.I.stats, value: stats.goals.pct + '%', label: `Goals done (${stats.goals.done}/${stats.goals.total})` }),
+        F.kpiTile({ icon: F.I.calendar, value: F.fmt(stats.events.upcoming), label: 'Upcoming events' }),
+        F.kpiTile({ icon: F.I.docs, value: F.fmt(stats.documents.total), label: 'Documents' }),
+      ].join('');
+    }
+    function renderCharts() {
+      F.gauge(document.getElementById('goalGauge'), { value: stats.goals.pct, center: stats.goals.pct + '%', sub: 'complete', size: 160 });
+      document.getElementById('goalSub').textContent = `${stats.goals.done} of ${stats.goals.total} goals completed`;
+      F.barChart(document.getElementById('evBars'), { data: stats.next7.map(d => ({ label: d.label, value: d.value })), height: 170 });
+      const mix = [
+        { label: 'Tasks', value: stats.tasks.total },
+        { label: 'Goals', value: stats.goals.total },
+        { label: 'Events', value: stats.events.total },
+        { label: 'Documents', value: stats.documents.total },
+      ];
+      const totalMix = mix.reduce((a, m) => a + m.value, 0);
+      F.donut(document.getElementById('mixDonut'), { segments: mix, center: F.fmt(totalMix), sub: 'items', size: 160 });
+      const pal = F.palette();
+      document.getElementById('mixLegend').innerHTML = mix.map((m, i) =>
+        `<span style="justify-content:space-between;width:100%"><span style="display:flex;align-items:center;gap:7px"><i style="background:${pal[i]}"></i>${m.label}</span><b style="color:var(--ink)">${m.value}</b></span>`).join('');
+    }
+    function renderSummary() {
+      const rows = [
+        ['Tasks in progress', stats.tasks.total],
+        ['Pinned tasks', stats.tasks.pinned],
+        ['Tasks with reminders', stats.tasks.reminders],
+        ['Goals completed', `${stats.goals.done} / ${stats.goals.total} (${stats.goals.pct}%)`],
+        ['Total calendar events', stats.events.total],
+        ['Upcoming events', stats.events.upcoming],
+        ['Documents saved', stats.documents.total],
+      ];
+      document.getElementById('summary').innerHTML = rows.map(([k, v]) =>
+        `<div class="list-row"><div class="l-main"><div class="l-sub">${k}</div></div><b style="color:var(--ink)">${v}</b></div>`).join('');
+    }
+
+    async function refresh() {
+      stats = await F.api('/stats');
+      renderKPIs(); renderCharts(); renderSummary();
+      document.getElementById('liveTag').textContent = 'updated ' + new Date().toLocaleTimeString();
+    }
+
+    window.onExportReport = () => {
+      if (!stats) return;
+      F.exportCSV('statistics.csv', [
+        ['Metric', 'Value'],
+        ['Active tasks', stats.tasks.total], ['Pinned tasks', stats.tasks.pinned], ['Reminders', stats.tasks.reminders],
+        ['Goals total', stats.goals.total], ['Goals done', stats.goals.done], ['Goals %', stats.goals.pct],
+        ['Events total', stats.events.total], ['Upcoming events', stats.events.upcoming], ['Documents', stats.documents.total],
+        [], ['Day', 'Events (next 7)'], ...stats.next7.map(d => [d.date + ' (' + d.label + ')', d.value]),
+      ]);
+    };
+
+    (async function () {
+      await F.mountShell({ active: 'personal', subtitle: 'Statistics', extraNav: F.personalNav('statistics') });
+      await refresh();
+      setInterval(refresh, 15000);                       // live auto-refresh
+      document.addEventListener('flux:theme', () => { if (stats) renderCharts(); });
+    })();
+  </script>
+</body>
+</html>

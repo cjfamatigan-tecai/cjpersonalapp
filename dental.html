@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux Dental</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/flux.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="side"></aside>
+    <main class="main" id="main">
+      <header class="topbar" id="topbar"></header>
+
+      <section class="grid g4" id="kpis"></section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head">
+            <div><div class="card-title">Production vs collections</div><div class="card-sub" id="prodSub"></div></div>
+            <div class="seg" id="rangeSeg"><button data-r="6" class="active">6mo</button><button data-r="12">12mo</button></div>
+          </div>
+          <div class="legend" style="margin-bottom:12px"><span><i style="background:var(--c1)"></i>Production</span><span><i style="background:var(--c3)"></i>Collections</span></div>
+          <div id="prodChart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">Chair utilization</div><div class="card-sub">Today across operatories</div></div></div>
+          <div style="display:flex;justify-content:center;margin:8px 0 14px" id="utilGauge"></div>
+          <div id="utilMeta" class="list"></div>
+        </div>
+      </section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head"><div class="card-title">Today's schedule</div><div id="apptChips" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+          <div class="tbl-wrap"><table class="tbl" id="apptTable"></table></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Revenue by procedure</div></div>
+          <div style="display:flex;justify-content:center;margin:6px 0 16px" id="procDonut"></div>
+          <div class="legend" style="flex-direction:column;gap:10px" id="procLegend"></div>
+        </div>
+      </section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head"><div class="card-title">Insurance claims & A/R aging</div><button class="btn btn-ghost" id="expClaims">Export CSV</button></div>
+          <div class="tbl-wrap"><table class="tbl" id="claimTable"></table></div>
+        </div>
+        <div class="card dark">
+          <div class="card-head"><div class="card-title" style="color:var(--on-dark)">Recall & reminders</div></div>
+          <div id="recalls" class="list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/flux.js"></script>
+  <script>
+    const F=Flux;
+    const PROD12=[520,560,610,590,640,700,680,720,760,740,810,860].map(x=>x*1000);
+    const COLL12=PROD12.map(p=>p*0.92);
+    const MONTHS=['Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug'];
+
+    const procedures=[{label:'Cleanings & hygiene',value:28},{label:'Fillings',value:22},{label:'Crowns & bridges',value:19},{label:'Orthodontics',value:16},{label:'Implants',value:9},{label:'Whitening',value:6}];
+    let appts=[
+      {time:'9:00',patient:'M. Santos',provider:'Dr. Lim',proc:'Cleaning',status:'Checked-in'},
+      {time:'9:30',patient:'J. Cruz',provider:'Dr. Reyes',proc:'Filling',status:'In-chair'},
+      {time:'10:15',patient:'A. Reyes',provider:'Dr. Lim',proc:'Crown fitting',status:'Confirmed'},
+      {time:'11:00',patient:'L. Tan',provider:'Dr. Cruz',proc:'Consult',status:'Confirmed'},
+      {time:'1:30',patient:'R. Dela Cruz',provider:'Dr. Reyes',proc:'Ortho adjust',status:'No-show'},
+      {time:'2:15',patient:'K. Villanueva',provider:'Dr. Lim',proc:'Whitening',status:'Confirmed'},
+    ];
+    const claims=[
+      {payer:'MediCare Plus',submitted:184000,pending:62000,paid:118000,bucket:'0 to 30'},
+      {payer:'HealthFirst HMO',submitted:142000,pending:98000,paid:44000,bucket:'31 to 60'},
+      {payer:'Intellicare',submitted:96000,pending:96000,paid:0,bucket:'61 to 90'},
+      {payer:'Self-pay balances',submitted:73000,pending:73000,paid:0,bucket:'90+'},
+    ];
+    const recalls=[
+      {name:'Overdue hygiene recalls',sub:'34 patients, send reminder'},
+      {name:'Appointments tomorrow',sub:'18 to confirm via SMS'},
+      {name:'Treatment plans pending',sub:'12 presented, ₱640k value'},
+      {name:'Post-visit reviews',sub:'9 requests queued'},
+    ];
+
+    function renderKPIs(){
+      document.getElementById('kpis').innerHTML=[
+        F.kpiTile({icon:F.I.tooth,value:'24',label:"Today's appointments",delta:5.0,dark:true}),
+        F.kpiTile({icon:F.I.up,value:F.money(860000),label:'Production (MTD)',delta:6.2}),
+        F.kpiTile({icon:F.I.cart,value:'92%',label:'Collection rate',delta:1.4}),
+        F.kpiTile({icon:F.I.megaphone,value:'71%',label:'Treatment acceptance',delta:-2.1}),
+      ].join('');
+    }
+    function renderProd(r){
+      const p=PROD12.slice(-r),c=COLL12.slice(-r),labels=MONTHS.slice(-r);
+      F.areaChart(document.getElementById('prodChart'),{series:[
+        {values:p,color:F.palette()[0],fill:true},{values:c,color:F.palette()[2],dashed:true},
+      ],labels,height:170});
+      document.getElementById('prodSub').textContent=`${F.money(p.reduce((a,b)=>a+b,0))} produced, ${F.money(c.reduce((a,b)=>a+b,0))} collected`;
+    }
+    function renderUtil(){
+      F.gauge(document.getElementById('utilGauge'),{value:78,center:'78%',sub:'6 chairs',size:150});
+      document.getElementById('utilMeta').innerHTML=[['New patients (MTD)','31'],['No-show rate','7.5%'],['Outstanding A/R',F.money(329000)]].map(([k,v])=>`<div class="list-row"><div class="l-main"><div class="l-sub">${k}</div></div><b style="color:var(--ink)">${v}</b></div>`).join('');
+    }
+    const AST=['All','Confirmed','Checked-in','In-chair','No-show']; let af='All';
+    function renderApptChips(){
+      document.getElementById('apptChips').innerHTML=AST.map(s=>`<button class="chip${s===af?' active':''}" data-s="${s}">${s}</button>`).join('');
+      document.querySelectorAll('#apptChips .chip').forEach(c=>c.addEventListener('click',()=>{af=c.dataset.s;renderApptChips();renderAppts();}));
+    }
+    function renderAppts(){
+      const rows=appts.filter(a=>af==='All'||a.status===af);
+      const cls={Confirmed:'','Checked-in':'warn','In-chair':'ok','No-show':'bad',Completed:'ok'};
+      document.getElementById('apptTable').innerHTML=`<thead><tr><th>Time</th><th>Patient</th><th>Provider</th><th>Procedure</th><th>Status</th><th></th></tr></thead><tbody>${
+        rows.map(a=>`<tr><td class="prod">${a.time}</td><td>${F.escapeHtml(a.patient)}</td><td>${a.provider}</td><td>${a.proc}</td><td><span class="badge dot ${cls[a.status]}">${a.status}</span></td><td><button class="mini-btn" data-done="${a.time}">Complete</button></td></tr>`).join('')||`<tr><td colspan="6" style="text-align:center;color:var(--muted)">None</td></tr>`
+      }</tbody>`;
+      document.querySelectorAll('#apptTable [data-done]').forEach(b=>b.addEventListener('click',()=>{const a=appts.find(x=>x.time===b.dataset.done);a.status='Completed';renderAppts();F.toast('Completed: '+a.patient);}));
+    }
+    function renderProc(){
+      F.donut(document.getElementById('procDonut'),{segments:procedures,center:F.money(860).replace('₱','₱')+'k',sub:'MTD',size:160});
+      const pal=F.palette();
+      document.getElementById('procLegend').innerHTML=procedures.map((s,i)=>`<span style="justify-content:space-between;width:100%"><span style="display:flex;align-items:center;gap:7px"><i style="background:${pal[i]}"></i>${s.label}</span><b style="color:var(--ink)">${s.value}%</b></span>`).join('');
+    }
+    function renderClaims(){
+      const cls={'0 to 30':'ok','31 to 60':'warn','61 to 90':'warn','90+':'bad'};
+      document.getElementById('claimTable').innerHTML=`<thead><tr><th>Payer</th><th class="num">Submitted</th><th class="num">Pending</th><th class="num">Paid</th><th>Aging</th></tr></thead><tbody>${
+        claims.map(c=>`<tr><td class="prod">${F.escapeHtml(c.payer)}</td><td class="num">${F.money(c.submitted)}</td><td class="num">${F.money(c.pending)}</td><td class="num">${F.money(c.paid)}</td><td><span class="badge dot ${cls[c.bucket]}">${c.bucket} days</span></td></tr>`).join('')
+      }</tbody>`;
+    }
+    function renderRecalls(){
+      document.getElementById('recalls').innerHTML=recalls.map(x=>`<div class="list-row"><div class="l-ico" style="background:var(--dark-2);color:var(--on-dark)">${F.I.tooth}</div><div class="l-main"><div class="l-title" style="color:var(--on-dark)">${F.escapeHtml(x.name)}</div><div class="l-sub" style="color:var(--on-dark-muted)">${F.escapeHtml(x.sub)}</div></div><button class="mini-btn" data-send="${F.escapeHtml(x.name)}">Send</button></div>`).join('');
+      document.querySelectorAll('#recalls [data-send]').forEach(b=>b.addEventListener('click',()=>F.toast('Sent: '+b.dataset.send)));
+    }
+
+    document.getElementById('expClaims').addEventListener('click',()=>F.exportCSV('claims-aging.csv',[['Payer','Submitted','Pending','Paid','Aging'],...claims.map(c=>[c.payer,c.submitted,c.pending,c.paid,c.bucket])]));
+    window.onExportReport=()=>F.exportCSV('dental-report.csv',[['Metric','Value'],['Appointments today',24],['Production MTD',860000],['Collection rate','92%'],['Acceptance','71%'],[],['Payer','Submitted','Pending','Paid'],...claims.map(c=>[c.payer,c.submitted,c.pending,c.paid])]);
+
+    (async function(){
+      await F.mountShell({active:'dental',subtitle:'Practice overview, today'});
+      renderKPIs();renderProd(6);renderUtil();renderApptChips();renderAppts();renderProc();renderClaims();renderRecalls();
+      document.querySelectorAll('#rangeSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderProd(+b.dataset.r);}));
+      document.addEventListener('flux:theme',()=>{renderProd(+document.querySelector('#rangeSeg .active').dataset.r);renderProc();renderUtil();});
+    })();
+  </script>
+</body>
+</html>

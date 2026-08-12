@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux E-commerce</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/flux.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="side"></aside>
+    <main class="main" id="main">
+      <header class="topbar" id="topbar"></header>
+
+      <!-- KPIs -->
+      <section class="grid g4" id="kpis"></section>
+
+      <!-- Sales + channels -->
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head">
+            <div><div class="card-title">Sales over time</div><div class="card-sub" id="salesSub"></div></div>
+            <div class="seg" id="rangeSeg">
+              <button data-r="7" class="active">7d</button><button data-r="30">30d</button><button data-r="90">90d</button>
+            </div>
+          </div>
+          <div class="legend" style="margin-bottom:12px">
+            <span><i style="background:var(--c1)"></i>Revenue</span>
+            <span><i style="background:var(--c3)"></i>Orders (scaled)</span>
+          </div>
+          <div id="salesChart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Revenue by channel</div></div>
+          <div style="display:flex;justify-content:center;margin:6px 0 16px" id="channelDonut"></div>
+          <div class="legend" style="flex-direction:column;gap:10px" id="channelLegend"></div>
+        </div>
+      </section>
+
+      <!-- Top products + funnel -->
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head">
+            <div class="card-title">Top products</div>
+            <button class="btn btn-ghost" id="expProducts">Export CSV</button>
+          </div>
+          <div class="tbl-wrap">
+            <table class="tbl" id="productTable"></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Conversion funnel</div></div>
+          <div id="funnel" class="pipeline"></div>
+        </div>
+      </section>
+
+      <!-- Orders + inventory alerts -->
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head">
+            <div class="card-title">Orders queue</div>
+            <div id="orderChips" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+          </div>
+          <div class="tbl-wrap"><table class="tbl" id="orderTable"></table></div>
+        </div>
+        <div class="card dark">
+          <div class="card-head"><div class="card-title" style="color:var(--on-dark)">Inventory alerts</div></div>
+          <div id="inventory" class="list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/flux.js"></script>
+  <script>
+    const F = Flux;
+
+    /* ---------- demo data ---------- */
+    const day = i => { const d = new Date(); d.setDate(d.getDate() - i); return (d.getMonth()+1)+'/'+d.getDate(); };
+    function genSeries(n, base, vol) {
+      const out = []; let v = base;
+      for (let i = 0; i < n; i++) { v = Math.max(base*0.4, v + (Math.random()-0.45)*vol); out.push(Math.round(v)); }
+      return out;
+    }
+    const RANGES = { 7: genSeries(7, 42000, 12000), 30: genSeries(30, 40000, 14000), 90: genSeries(90, 38000, 16000) };
+    const ORDERS_R = { 7: genSeries(7, 120, 40), 30: genSeries(30, 115, 45), 90: genSeries(90, 110, 50) };
+
+    const channels = [
+      { label: 'Web store', value: 148000 },
+      { label: 'Mobile app', value: 96000 },
+      { label: 'Marketplace', value: 61000 },
+      { label: 'Social', value: 33000 },
+    ];
+    const products = [
+      { name: 'Aurora Wireless Buds', units: 412, rev: 823000, margin: 38, stock: 'In stock', sell: 72 },
+      { name: 'Nimbus Smart Watch', units: 286, rev: 1287000, margin: 44, stock: 'In stock', sell: 61 },
+      { name: 'Terra Hydro Flask', units: 654, rev: 392000, margin: 55, stock: 'Low', sell: 88 },
+      { name: 'Lumen Desk Lamp', units: 173, rev: 259000, margin: 41, stock: 'In stock', sell: 47 },
+      { name: 'Pulse Fitness Band', units: 98, rev: 176000, margin: 33, stock: 'Out', sell: 95 },
+    ];
+    const funnel = [
+      { name: 'Sessions', v: 84200 }, { name: 'Product views', v: 51300 },
+      { name: 'Add to cart', v: 18700 }, { name: 'Checkout', v: 9400 }, { name: 'Purchase', v: 6120 },
+    ];
+    let orders = [
+      { id: '#10432', cust: 'M. Santos', total: 4290, status: 'Paid' },
+      { id: '#10431', cust: 'J. Cruz', total: 12850, status: 'Packed' },
+      { id: '#10430', cust: 'A. Reyes', total: 2390, status: 'Shipped' },
+      { id: '#10429', cust: 'L. Tan', total: 8990, status: 'Delivered' },
+      { id: '#10428', cust: 'R. Dela Cruz', total: 1590, status: 'Returned' },
+      { id: '#10427', cust: 'K. Villanueva', total: 6740, status: 'Paid' },
+    ];
+    const inventory = [
+      { name: 'Pulse Fitness Band', sub: 'Out of stock, 0 left', crit: true },
+      { name: 'Terra Hydro Flask', sub: 'Low, 12 left, 3 days cover' },
+      { name: 'Nimbus Smart Watch', sub: 'Low, 28 left, 6 days cover' },
+      { name: 'Aurora Wireless Buds', sub: 'Reorder point reached' },
+    ];
+
+    /* ---------- render ---------- */
+    function renderKPIs() {
+      document.getElementById('kpis').innerHTML = [
+        F.kpiTile({ icon: F.I.cart, value: F.money(1543200), label: 'Revenue (MTD)', delta: 12.4, dark: true }),
+        F.kpiTile({ icon: F.I.grid, value: F.fmt(3184), label: 'Orders', delta: 8.1 }),
+        F.kpiTile({ icon: F.I.up, value: F.money(1846), label: 'Avg order value', delta: 3.7 }),
+        F.kpiTile({ icon: F.I.megaphone, value: '3.2%', label: 'Conversion rate', delta: -0.4 }),
+      ].join('');
+    }
+    function renderSales(r) {
+      const rev = RANGES[r], ord = ORDERS_R[r];
+      const maxRev = Math.max(...rev), maxOrd = Math.max(...ord);
+      const ordScaled = ord.map(o => o / maxOrd * maxRev);
+      const labels = r == 7 ? Array.from({length:7},(_,i)=>day(6-i)) : (r==30 ? ['4w','3w','2w','1w','now'] : ['3mo','2mo','1mo','now']);
+      const revShown = r == 7 ? rev : sample(rev, labels.length);
+      const ordShown = r == 7 ? ordScaled : sample(ordScaled, labels.length);
+      F.areaChart(document.getElementById('salesChart'), {
+        series: [
+          { values: revShown, color: getComputedStyle(document.documentElement).getPropertyValue('--c1').trim(), fill: true },
+          { values: ordShown, color: getComputedStyle(document.documentElement).getPropertyValue('--c3').trim(), dashed: true },
+        ], labels, height: 170,
+      });
+      const total = rev.reduce((a,b)=>a+b,0);
+      document.getElementById('salesSub').textContent = `${F.money(total)} across last ${r} days`;
+    }
+    function sample(arr, n) { const out=[]; for(let i=0;i<n;i++) out.push(arr[Math.floor(i/(n-1)*(arr.length-1))]); return out; }
+
+    function renderChannels() {
+      F.donut(document.getElementById('channelDonut'), { segments: channels, center: F.money(channels.reduce((a,c)=>a+c.value,0)).replace('₱','₱'), sub: 'total', size: 160 });
+      const pal = F.palette();
+      const total = channels.reduce((a,c)=>a+c.value,0);
+      document.getElementById('channelLegend').innerHTML = channels.map((c,i)=>
+        `<span style="justify-content:space-between;width:100%"><span style="display:flex;align-items:center;gap:7px"><i style="background:${pal[i]}"></i>${c.label}</span><b style="color:var(--ink)">${Math.round(c.value/total*100)}%</b></span>`).join('');
+    }
+    function renderProducts() {
+      const t = document.getElementById('productTable');
+      t.innerHTML = `<thead><tr><th>Product</th><th class="num">Units</th><th class="num">Revenue</th><th class="num">Margin</th><th>Sell-through</th><th>Stock</th></tr></thead><tbody>${
+        products.map(p => `<tr>
+          <td class="prod">${F.escapeHtml(p.name)}</td>
+          <td class="num">${F.fmt(p.units)}</td>
+          <td class="num">${F.money(p.rev)}</td>
+          <td class="num">${p.margin}%</td>
+          <td><div style="display:flex;align-items:center;gap:8px"><div class="bar-track"><div class="bar-fill" style="width:${p.sell}%"></div></div><span style="font-size:12px">${p.sell}%</span></div></td>
+          <td><span class="badge dot ${p.stock==='Out'?'bad':p.stock==='Low'?'warn':'ok'}">${p.stock}</span></td>
+        </tr>`).join('')
+      }</tbody>`;
+    }
+    function renderFunnel() {
+      const top = funnel[0].v;
+      document.getElementById('funnel').innerHTML = funnel.map((f,i)=>{
+        const rate = Math.round(f.v/top*100);
+        return `<div class="pipe-stage"><div><div class="s-name">${f.name}</div><div class="s-meta">${i>0?('drop '+ (100-Math.round(f.v/funnel[i-1].v*100)) +'%'):'entry'}</div></div><div style="text-align:right"><div class="s-val">${F.fmt(f.v)}</div><div class="s-meta">${rate}%</div></div></div>`;
+      }).join('');
+    }
+    const STATUSES = ['All','Paid','Packed','Shipped','Delivered','Returned'];
+    let orderFilter = 'All';
+    function renderOrderChips() {
+      document.getElementById('orderChips').innerHTML = STATUSES.map(s=>`<button class="chip${s===orderFilter?' active':''}" data-s="${s}">${s}</button>`).join('');
+      document.querySelectorAll('#orderChips .chip').forEach(c=>c.addEventListener('click',()=>{ orderFilter=c.dataset.s; renderOrderChips(); renderOrders(); }));
+    }
+    function renderOrders() {
+      const rows = orders.filter(o=>orderFilter==='All'||o.status===orderFilter);
+      const cls = { Paid:'', Packed:'warn', Shipped:'', Delivered:'ok', Returned:'bad' };
+      document.getElementById('orderTable').innerHTML = `<thead><tr><th>Order</th><th>Customer</th><th class="num">Total</th><th>Status</th><th></th></tr></thead><tbody>${
+        rows.map(o=>`<tr>
+          <td class="prod">${o.id}</td><td>${F.escapeHtml(o.cust)}</td><td class="num">${F.money(o.total)}</td>
+          <td><span class="badge dot ${cls[o.status]}">${o.status}</span></td>
+          <td><div class="row-actions"><button class="mini-btn" data-adv="${o.id}">Advance</button></div></td>
+        </tr>`).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--muted)">No orders</td></tr>`
+      }</tbody>`;
+      document.querySelectorAll('#orderTable [data-adv]').forEach(b=>b.addEventListener('click',()=>{
+        const o = orders.find(x=>x.id===b.dataset.adv); const flow=['Paid','Packed','Shipped','Delivered'];
+        const i = flow.indexOf(o.status); if(i>-1&&i<flow.length-1){ o.status=flow[i+1]; renderOrders(); F.toast(o.id+' → '+o.status);} else F.toast('No further step');
+      }));
+    }
+    function renderInventory() {
+      document.getElementById('inventory').innerHTML = inventory.map(x=>`
+        <div class="list-row"><div class="l-ico" style="background:var(--dark-2);color:var(--on-dark)">${F.I.cart}</div>
+        <div class="l-main"><div class="l-title" style="color:var(--on-dark)">${F.escapeHtml(x.name)}</div><div class="l-sub" style="color:var(--on-dark-muted)">${F.escapeHtml(x.sub)}</div></div>
+        <button class="mini-btn" data-re="${F.escapeHtml(x.name)}">Reorder</button></div>`).join('');
+      document.querySelectorAll('#inventory [data-re]').forEach(b=>b.addEventListener('click',()=>F.toast('Reorder drafted: '+b.dataset.re)));
+    }
+
+    /* ---------- exports ---------- */
+    document.getElementById('expProducts').innerHTML = F.I.download + ' Export CSV';
+    document.getElementById('expProducts').addEventListener('click', ()=>{
+      F.exportCSV('top-products.csv', [['Product','Units','Revenue','Margin%','Sell-through%','Stock'],
+        ...products.map(p=>[p.name,p.units,p.rev,p.margin,p.sell,p.stock])]);
+    });
+    window.onExportReport = () => F.exportCSV('ecommerce-summary.csv', [
+      ['Metric','Value'],['Revenue MTD',1543200],['Orders',3184],['AOV',1846],['Conversion','3.2%'],
+      [], ['Channel','Revenue'], ...channels.map(c=>[c.label,c.value]),
+      [], ['Order','Customer','Total','Status'], ...orders.map(o=>[o.id,o.cust,o.total,o.status]),
+    ]);
+
+    /* ---------- init ---------- */
+    (async function () {
+      await F.mountShell({ active: 'ecommerce', subtitle: 'Store overview, this month' });
+      renderKPIs(); renderSales(7); renderChannels(); renderProducts(); renderFunnel();
+      renderOrderChips(); renderOrders(); renderInventory();
+      document.querySelectorAll('#rangeSeg button').forEach(b=>b.addEventListener('click',()=>{
+        document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active'); renderSales(+b.dataset.r);
+      }));
+      document.addEventListener('flux:theme', ()=>{ renderSales(+document.querySelector('#rangeSeg .active').dataset.r); renderChannels(); });
+    })();
+  </script>
+</body>
+</html>

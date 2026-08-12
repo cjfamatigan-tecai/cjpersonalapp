@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux HVAC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/flux.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="side"></aside>
+    <main class="main" id="main">
+      <header class="topbar" id="topbar"></header>
+
+      <section class="grid g4" id="kpis"></section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head">
+            <div><div class="card-title">Revenue & jobs</div><div class="card-sub" id="revSub"></div></div>
+            <div class="seg" id="rangeSeg"><button data-r="6" class="active">6mo</button><button data-r="12">12mo</button></div>
+          </div>
+          <div class="legend" style="margin-bottom:12px"><span><i style="background:var(--c1)"></i>Revenue</span><span><i style="background:var(--c3)"></i>Jobs completed</span></div>
+          <div id="revChart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Revenue by service</div></div>
+          <div style="display:flex;justify-content:center;margin:6px 0 16px" id="svcDonut"></div>
+          <div class="legend" style="flex-direction:column;gap:10px" id="svcLegend"></div>
+        </div>
+      </section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head"><div class="card-title">Dispatch board today</div><div id="jobChips" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+          <div class="tbl-wrap"><table class="tbl" id="jobTable"></table></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">First-time fix</div><div class="card-sub">Rolling 30 days</div></div></div>
+          <div style="display:flex;justify-content:center;margin:8px 0 14px" id="fixGauge"></div>
+          <div id="fixMeta" class="list"></div>
+        </div>
+      </section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head"><div class="card-title">Technician performance</div><button class="btn btn-ghost" id="expTechs">Export CSV</button></div>
+          <div class="tbl-wrap"><table class="tbl" id="techTable"></table></div>
+        </div>
+        <div class="card dark">
+          <div class="card-head"><div class="card-title" style="color:var(--on-dark)">Service agreements & alerts</div></div>
+          <div id="alerts" class="list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/flux.js"></script>
+  <script>
+    const F=Flux;
+    // seasonal: cooling season peaks mid-year
+    const REV12=[380,340,410,520,680,820,910,860,720,560,470,520].map(x=>x*1000);
+    const JOBS12=[86,74,92,118,150,182,198,188,158,124,104,116];
+    const MONTHS=['Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug'];
+
+    const services=[{label:'AC repair',value:34},{label:'Installations',value:26},{label:'Maintenance (PM)',value:22},{label:'Emergency calls',value:11},{label:'Duct & air quality',value:7}];
+    let jobs=[
+      {id:'WO-2043',cust:'Sunrise Café',type:'AC repair',tech:'R. Cruz',pri:'High',status:'En route'},
+      {id:'WO-2042',cust:'Lopez Residence',type:'Maintenance',tech:'M. Santos',pri:'Normal',status:'On-site'},
+      {id:'WO-2041',cust:'BGC Office Tower',type:'Installation',tech:'A. Reyes',pri:'High',status:'Scheduled'},
+      {id:'WO-2040',cust:'Green Pharmacy',type:'Emergency',tech:'R. Cruz',pri:'Urgent',status:'Scheduled'},
+      {id:'WO-2039',cust:'Tan Residence',type:'AC repair',tech:'B. Uy',pri:'Normal',status:'Completed'},
+      {id:'WO-2038',cust:'Metro Gym',type:'Maintenance',tech:'M. Santos',pri:'Normal',status:'Invoiced'},
+    ];
+    const techs=[
+      {name:'R. Cruz',jobs:38,rev:412000,ftf:94,callbacks:2,upsell:31},
+      {name:'M. Santos',jobs:34,rev:356000,ftf:89,callbacks:3,upsell:27},
+      {name:'A. Reyes',jobs:29,rev:388000,ftf:91,callbacks:1,upsell:22},
+      {name:'B. Uy',jobs:22,rev:214000,ftf:83,callbacks:4,upsell:18},
+    ];
+    const alerts=[
+      {name:'Contracts expiring',sub:'7 renewals due in 30 days',crit:true},
+      {name:'PM visits due',sub:'14 scheduled this week'},
+      {name:'Overdue jobs',sub:'3 past SLA, escalate'},
+      {name:'Low truck stock',sub:'Capacitors, R-410A refrigerant'},
+    ];
+
+    function renderKPIs(){
+      document.getElementById('kpis').innerHTML=[
+        F.kpiTile({icon:F.I.hvac,value:'19',label:'Jobs today',delta:8.0,dark:true}),
+        F.kpiTile({icon:F.I.up,value:F.money(520000),label:'Revenue (MTD)',delta:7.4}),
+        F.kpiTile({icon:F.I.cart,value:F.money(4480),label:'Avg ticket value',delta:3.1}),
+        F.kpiTile({icon:F.I.grid,value:'86%',label:'Technician utilization',delta:2.6}),
+      ].join('');
+    }
+    function renderRev(r){
+      const rev=REV12.slice(-r),jb=JOBS12.slice(-r),labels=MONTHS.slice(-r);
+      const mx=Math.max(...rev),mxj=Math.max(...jb);
+      F.areaChart(document.getElementById('revChart'),{series:[
+        {values:rev,color:F.palette()[0],fill:true},{values:jb.map(j=>j/mxj*mx),color:F.palette()[2],dashed:true},
+      ],labels,height:170});
+      document.getElementById('revSub').textContent=`${F.money(rev.reduce((a,b)=>a+b,0))}, ${jb.reduce((a,b)=>a+b,0)} jobs`;
+    }
+    function renderSvc(){
+      F.donut(document.getElementById('svcDonut'),{segments:services,center:'100%',sub:'revenue',size:160});
+      const pal=F.palette();
+      document.getElementById('svcLegend').innerHTML=services.map((s,i)=>`<span style="justify-content:space-between;width:100%"><span style="display:flex;align-items:center;gap:7px"><i style="background:${pal[i]}"></i>${s.label}</span><b style="color:var(--ink)">${s.value}%</b></span>`).join('');
+    }
+    const JST=['All','Scheduled','En route','On-site','Completed','Invoiced']; let jf='All';
+    function renderJobChips(){
+      document.getElementById('jobChips').innerHTML=JST.map(s=>`<button class="chip${s===jf?' active':''}" data-s="${s}">${s}</button>`).join('');
+      document.querySelectorAll('#jobChips .chip').forEach(c=>c.addEventListener('click',()=>{jf=c.dataset.s;renderJobChips();renderJobs();}));
+    }
+    function renderJobs(){
+      const rows=jobs.filter(j=>jf==='All'||j.status===jf);
+      const st={Scheduled:'','En route':'warn','On-site':'warn',Completed:'ok',Invoiced:'ok'};
+      const pr={Urgent:'bad',High:'warn',Normal:''};
+      document.getElementById('jobTable').innerHTML=`<thead><tr><th>Work order</th><th>Customer</th><th>Type</th><th>Tech</th><th>Priority</th><th>Status</th><th></th></tr></thead><tbody>${
+        rows.map(j=>`<tr><td class="prod">${j.id}</td><td>${F.escapeHtml(j.cust)}</td><td>${j.type}</td><td>${j.tech}</td><td><span class="badge ${pr[j.pri]}">${j.pri}</span></td><td><span class="badge dot ${st[j.status]}">${j.status}</span></td><td><button class="mini-btn" data-adv="${j.id}">Advance</button></td></tr>`).join('')||`<tr><td colspan="7" style="text-align:center;color:var(--muted)">No jobs</td></tr>`
+      }</tbody>`;
+      document.querySelectorAll('#jobTable [data-adv]').forEach(b=>b.addEventListener('click',()=>{const j=jobs.find(x=>x.id===b.dataset.adv);const f=['Scheduled','En route','On-site','Completed','Invoiced'];const i=f.indexOf(j.status);if(i>-1&&i<f.length-1){j.status=f[i+1];renderJobs();F.toast(j.id+' → '+j.status);}else F.toast('No further step');}));
+    }
+    function renderFix(){
+      F.gauge(document.getElementById('fixGauge'),{value:90,center:'90%',sub:'first-time fix',size:150});
+      document.getElementById('fixMeta').innerHTML=[['Open work orders','23'],['Overdue jobs','3'],['Callback rate','4.2%']].map(([k,v])=>`<div class="list-row"><div class="l-main"><div class="l-sub">${k}</div></div><b style="color:var(--ink)">${v}</b></div>`).join('');
+    }
+    function renderTechs(){
+      document.getElementById('techTable').innerHTML=`<thead><tr><th>Technician</th><th class="num">Jobs</th><th class="num">Revenue</th><th class="num">First-fix</th><th class="num">Callbacks</th><th class="num">Upsell</th></tr></thead><tbody>${
+        techs.map(t=>`<tr><td class="prod">${F.escapeHtml(t.name)}</td><td class="num">${t.jobs}</td><td class="num">${F.money(t.rev)}</td><td class="num"><span class="badge ${t.ftf>=90?'ok':'warn'}">${t.ftf}%</span></td><td class="num">${t.callbacks}</td><td class="num">${t.upsell}%</td></tr>`).join('')
+      }</tbody>`;
+    }
+    function renderAlerts(){
+      document.getElementById('alerts').innerHTML=alerts.map(x=>`<div class="list-row"><div class="l-ico" style="background:var(--dark-2);color:var(--on-dark)">${F.I.hvac}</div><div class="l-main"><div class="l-title" style="color:var(--on-dark)">${F.escapeHtml(x.name)}</div><div class="l-sub" style="color:var(--on-dark-muted)">${F.escapeHtml(x.sub)}</div></div><button class="mini-btn" data-act="${F.escapeHtml(x.name)}">View</button></div>`).join('');
+      document.querySelectorAll('#alerts [data-act]').forEach(b=>b.addEventListener('click',()=>F.toast('Opening: '+b.dataset.act)));
+    }
+
+    document.getElementById('expTechs').addEventListener('click',()=>F.exportCSV('technician-performance.csv',[['Technician','Jobs','Revenue','FirstFix%','Callbacks','Upsell%'],...techs.map(t=>[t.name,t.jobs,t.rev,t.ftf,t.callbacks,t.upsell])]));
+    window.onExportReport=()=>F.exportCSV('hvac-report.csv',[['Metric','Value'],['Jobs today',19],['Revenue MTD',520000],['Avg ticket',4480],['Utilization','86%'],[],['Tech','Jobs','Revenue','FirstFix'],...techs.map(t=>[t.name,t.jobs,t.rev,t.ftf])]);
+
+    (async function(){
+      await F.mountShell({active:'hvac',subtitle:'Field service overview, today'});
+      renderKPIs();renderRev(6);renderSvc();renderJobChips();renderJobs();renderFix();renderTechs();renderAlerts();
+      document.querySelectorAll('#rangeSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderRev(+b.dataset.r);}));
+      document.addEventListener('flux:theme',()=>{renderRev(+document.querySelector('#rangeSeg .active').dataset.r);renderSvc();renderFix();});
+    })();
+  </script>
+</body>
+</html>

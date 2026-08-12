@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux Real Estate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/flux.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="side"></aside>
+    <main class="main" id="main">
+      <header class="topbar" id="topbar"></header>
+
+      <section class="grid g4" id="kpis"></section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head">
+            <div><div class="card-title">Sales volume & commission</div><div class="card-sub" id="volSub"></div></div>
+            <div class="seg" id="rangeSeg"><button data-r="6" class="active">6mo</button><button data-r="12">12mo</button></div>
+          </div>
+          <div class="legend" style="margin-bottom:12px"><span><i style="background:var(--c1)"></i>Sales volume</span><span><i style="background:var(--c3)"></i>Commission</span></div>
+          <div id="volChart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Lead sources</div></div>
+          <div style="display:flex;justify-content:center;margin:6px 0 16px" id="sourceDonut"></div>
+          <div class="legend" style="flex-direction:column;gap:10px" id="sourceLegend"></div>
+        </div>
+      </section>
+
+      <section class="grid g3">
+        <div class="card">
+          <div class="card-head"><div class="card-title">Deal pipeline</div></div>
+          <div id="pipeline" class="pipeline"></div>
+        </div>
+        <div class="card span-2">
+          <div class="card-head"><div class="card-title">Active listings</div><button class="btn btn-ghost" id="expListings">Export CSV</button></div>
+          <div class="tbl-wrap"><table class="tbl" id="listingTable"></table></div>
+        </div>
+      </section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head"><div class="card-title">Agent leaderboard</div></div>
+          <div class="tbl-wrap"><table class="tbl" id="agentTable"></table></div>
+        </div>
+        <div class="card dark">
+          <div class="card-head"><div class="card-title" style="color:var(--on-dark)">Upcoming showings</div></div>
+          <div id="showings" class="list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/flux.js"></script>
+  <script>
+    const F=Flux;
+    const VOL12=[6.2,5.4,7.1,8.3,6.9,9.4,10.2,8.8,11.5,9.7,12.1,13.4].map(x=>x*1e6);
+    const COM12=VOL12.map(v=>v*0.025);
+    const MONTHS=['Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug'];
+
+    const sources=[{label:'Portals (Lamudi etc.)',value:34},{label:'Referrals',value:28},{label:'Social media',value:20},{label:'Walk-in',value:11},{label:'Open house',value:7}];
+    const pipeline=[
+      {name:'Lead',count:42,val:0},{name:'Qualified',count:23,val:0},{name:'Showing',count:14,val:78e6},
+      {name:'Offer',count:8,val:52e6},{name:'Under contract',count:5,val:41e6},{name:'Closed',count:11,val:96e6},
+    ];
+    let listings=[
+      {addr:'Bonifacio Global City, 2BR Condo',price:14500000,dom:18,status:'Active',views:342},
+      {addr:'Alabang, 4BR House & Lot',price:28900000,dom:44,status:'Active',views:210},
+      {addr:'Makati, Studio Loft',price:6800000,dom:9,status:'Pending',views:498},
+      {addr:'Quezon City, Commercial Lot',price:41200000,dom:73,status:'Active',views:132},
+      {addr:'Tagaytay, Vacation Home',price:12300000,dom:5,status:'Active',views:271},
+    ];
+    const agents=[
+      {name:'Christian Jay',deals:9,vol:64e6,comm:1600000,conv:31},
+      {name:'Andrea Lim',deals:7,vol:52e6,comm:1300000,conv:27},
+      {name:'Marco Reyes',deals:6,vol:48e6,comm:1200000,conv:24},
+      {name:'Bea Cruz',deals:4,vol:33e6,comm:825000,conv:19},
+    ];
+    const showings=[
+      {addr:'BGC 2BR Condo',sub:'Today, 2:00 PM, M. Santos'},
+      {addr:'Makati Studio Loft',sub:'Today, 4:30 PM, J. Cruz'},
+      {addr:'Alabang House & Lot',sub:'Tomorrow, 10:00 AM, A. Reyes'},
+      {addr:'Tagaytay Vacation Home',sub:'Aug 14, 1:00 PM, Open house'},
+    ];
+
+    function renderKPIs(){
+      document.getElementById('kpis').innerHTML=[
+        F.kpiTile({icon:F.I.home,value:'37',label:'Active listings',delta:4.0,dark:true}),
+        F.kpiTile({icon:F.I.megaphone,value:'42',label:'New leads (MTD)',delta:9.8}),
+        F.kpiTile({icon:F.I.cart,value:F.money(96000000).replace('₱','₱'),label:'Sales volume YTD',delta:14.2}),
+        F.kpiTile({icon:F.I.up,value:F.money(2400000),label:'Commission YTD',delta:12.6}),
+      ].join('');
+    }
+    function renderVol(r){
+      const vol=VOL12.slice(-r),com=COM12.slice(-r),labels=MONTHS.slice(-r);
+      const mx=Math.max(...vol),mxc=Math.max(...com);
+      F.areaChart(document.getElementById('volChart'),{series:[
+        {values:vol,color:F.palette()[0],fill:true},
+        {values:com.map(c=>c/mxc*mx),color:F.palette()[2],dashed:true},
+      ],labels,height:170});
+      document.getElementById('volSub').textContent=`${F.money(vol.reduce((a,b)=>a+b,0))} volume, ${F.money(com.reduce((a,b)=>a+b,0))} commission`;
+    }
+    function renderSources(){
+      F.donut(document.getElementById('sourceDonut'),{segments:sources,center:'42',sub:'leads',size:160});
+      const pal=F.palette();
+      document.getElementById('sourceLegend').innerHTML=sources.map((s,i)=>`<span style="justify-content:space-between;width:100%"><span style="display:flex;align-items:center;gap:7px"><i style="background:${pal[i]}"></i>${s.label}</span><b style="color:var(--ink)">${s.value}%</b></span>`).join('');
+    }
+    function renderPipeline(){
+      document.getElementById('pipeline').innerHTML=pipeline.map(p=>`<div class="pipe-stage"><div><div class="s-name">${p.name}</div><div class="s-meta">${p.count} deals</div></div><div class="s-val">${p.val?F.money(p.val):''}</div></div>`).join('');
+    }
+    function renderListings(){
+      const cls={Active:'ok',Pending:'warn',Sold:''};
+      document.getElementById('listingTable').innerHTML=`<thead><tr><th>Property</th><th class="num">Price</th><th class="num">DOM</th><th class="num">Views</th><th>Status</th><th></th></tr></thead><tbody>${
+        listings.map(l=>`<tr><td class="prod">${F.escapeHtml(l.addr)}</td><td class="num">${F.money(l.price)}</td><td class="num">${l.dom}d</td><td class="num">${F.fmt(l.views)}</td><td><span class="badge dot ${cls[l.status]}">${l.status}</span></td><td><button class="mini-btn" data-sold="${F.escapeHtml(l.addr)}">Mark sold</button></td></tr>`).join('')
+      }</tbody>`;
+      document.querySelectorAll('#listingTable [data-sold]').forEach(b=>b.addEventListener('click',()=>{const l=listings.find(x=>x.addr===b.dataset.sold);l.status='Sold';renderListings();F.toast('Marked sold: '+l.addr);}));
+    }
+    function renderAgents(){
+      document.getElementById('agentTable').innerHTML=`<thead><tr><th>Agent</th><th class="num">Deals</th><th class="num">Volume</th><th class="num">Commission</th><th class="num">Conv.</th></tr></thead><tbody>${
+        agents.map(a=>`<tr><td class="prod">${F.escapeHtml(a.name)}</td><td class="num">${a.deals}</td><td class="num">${F.money(a.vol)}</td><td class="num">${F.money(a.comm)}</td><td class="num">${a.conv}%</td></tr>`).join('')
+      }</tbody>`;
+    }
+    function renderShowings(){
+      document.getElementById('showings').innerHTML=showings.map(s=>`<div class="list-row"><div class="l-ico" style="background:var(--dark-2);color:var(--on-dark)">${F.I.home}</div><div class="l-main"><div class="l-title" style="color:var(--on-dark)">${F.escapeHtml(s.addr)}</div><div class="l-sub" style="color:var(--on-dark-muted)">${F.escapeHtml(s.sub)}</div></div><button class="mini-btn" data-rem="${F.escapeHtml(s.addr)}">Remind</button></div>`).join('');
+      document.querySelectorAll('#showings [data-rem]').forEach(b=>b.addEventListener('click',()=>F.toast('Reminder set: '+b.dataset.rem)));
+    }
+
+    document.getElementById('expListings').addEventListener('click',()=>F.exportCSV('active-listings.csv',[['Property','Price','DaysOnMarket','Views','Status'],...listings.map(l=>[l.addr,l.price,l.dom,l.views,l.status])]));
+    window.onExportReport=()=>F.exportCSV('realestate-report.csv',[['Metric','Value'],['Active listings',37],['New leads',42],['Volume YTD',96000000],['Commission YTD',2400000],[],['Agent','Deals','Volume','Commission'],...agents.map(a=>[a.name,a.deals,a.vol,a.comm])]);
+
+    (async function(){
+      await F.mountShell({active:'realestate',subtitle:'Brokerage overview, year to date'});
+      renderKPIs();renderVol(6);renderSources();renderPipeline();renderListings();renderAgents();renderShowings();
+      document.querySelectorAll('#rangeSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderVol(+b.dataset.r);}));
+      document.addEventListener('flux:theme',()=>{renderVol(+document.querySelector('#rangeSeg .active').dataset.r);renderSources();});
+    })();
+  </script>
+</body>
+</html>

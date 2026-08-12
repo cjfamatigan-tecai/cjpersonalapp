@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux New Password</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg-0:#e9e9ec; --card:#fff; --card-bord:#ececef; --ink:#17181a; --ink-2:#3a3b3e; --muted:#9a9ba0; --muted-2:#c2c3c8; --field:#f4f4f6; --field-bord:#e4e4e8; --err:#b42318; --ok:#1a7f4b; --shadow:0 24px 70px -30px rgba(20,20,25,.4); }
+    :root[data-theme="dark"] { --bg-0:#0e0e10; --card:#1c1d1f; --card-bord:#2a2b2e; --ink:#f2f2f4; --ink-2:#d0d1d4; --muted:#7d7e83; --muted-2:#54555a; --field:#151517; --field-bord:#2c2d31; --err:#f0857d; --ok:#4ea87a; --shadow:0 24px 70px -30px rgba(0,0,0,.7); }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Plus Jakarta Sans',system-ui,sans-serif; color:var(--ink); background:var(--bg-0); min-height:100vh; display:grid; place-items:center; padding:24px; -webkit-font-smoothing:antialiased; }
+    body::before { content:""; position:fixed; inset:0; z-index:-1; filter:blur(30px); opacity:.9; background: radial-gradient(55% 50% at 80% 15%, rgba(255,255,255,.9), transparent 60%), radial-gradient(50% 50% at 12% 88%, rgba(255,255,255,.55), transparent 65%), conic-gradient(from 200deg at 65% 40%, #d9d9de, #eeeef1, #d3d3d9, #e9e9ee, #d9d9de); }
+    :root[data-theme="dark"] body::before { background: radial-gradient(55% 50% at 80% 15%, rgba(60,60,68,.5), transparent 60%), radial-gradient(50% 50% at 12% 88%, rgba(40,40,46,.6), transparent 65%), conic-gradient(from 200deg at 65% 40%, #141416, #1c1c20, #141418, #202024, #141416); }
+    .card { width:100%; max-width:410px; background:var(--card); border:1px solid var(--card-bord); border-radius:26px; padding:40px 34px; box-shadow:var(--shadow); }
+    .brand { display:flex; align-items:center; gap:11px; justify-content:center; margin-bottom:26px; }
+    .brand-mark { width:38px; height:38px; border-radius:11px; background:var(--ink); display:grid; place-items:center; color:var(--card); }
+    .brand-mark svg { width:21px; height:21px; }
+    .brand-name { font-weight:800; font-size:23px; letter-spacing:-.02em; }
+    h1 { font-size:23px; font-weight:800; letter-spacing:-.02em; text-align:center; }
+    .sub { text-align:center; color:var(--muted); font-size:14px; margin-top:7px; margin-bottom:26px; }
+    label { display:block; font-size:12.5px; font-weight:700; color:var(--ink-2); margin-bottom:7px; }
+    .field { margin-bottom:15px; }
+    input { width:100%; font-family:inherit; font-size:14.5px; color:var(--ink); background:var(--field); border:1.5px solid var(--field-bord); border-radius:14px; padding:13px 15px; outline:none; transition:border-color .15s; }
+    input:focus { border-color:var(--ink); }
+    .hint { font-size:11.5px; color:var(--muted); margin-top:6px; }
+    .btn { width:100%; margin-top:8px; background:var(--ink); color:var(--card); border:none; border-radius:14px; padding:14px; font-family:inherit; font-weight:700; font-size:15px; cursor:pointer; transition:transform .15s,opacity .15s; }
+    .btn:hover { transform:translateY(-1px); }
+    .btn:disabled { opacity:.6; cursor:default; transform:none; }
+    .msg { font-size:13px; font-weight:600; margin-top:14px; text-align:center; min-height:18px; line-height:1.5; }
+    .msg.err { color:var(--err); } .msg.ok { color:var(--ok); }
+    .switch { text-align:center; margin-top:22px; font-size:13.5px; color:var(--muted); }
+    .switch a { color:var(--ink); font-weight:700; text-decoration:none; } .switch a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand"><div class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7l8-4 8 4-8 4-8-4z" fill="currentColor"/><path d="M4 12l8 4 8-4M4 17l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="brand-name">Flux</span></div>
+    <h1>Set a new password</h1>
+    <p class="sub">Choose a new password for your account.</p>
+    <form id="form" novalidate>
+      <div class="field">
+        <label for="pw">New password</label>
+        <input id="pw" type="password" placeholder="••••••••" autocomplete="new-password" required />
+        <div class="hint">At least 8 characters.</div>
+      </div>
+      <div class="field">
+        <label for="pw2">Confirm password</label>
+        <input id="pw2" type="password" placeholder="••••••••" autocomplete="new-password" required />
+      </div>
+      <button class="btn" id="btn" type="submit">Set new password</button>
+      <div class="msg" id="msg"></div>
+    </form>
+    <div class="switch"><a href="login.html">Back to sign in</a></div>
+  </div>
+  <script>
+    const root = document.documentElement;
+    if (localStorage.getItem('flux-theme')) root.setAttribute('data-theme', localStorage.getItem('flux-theme'));
+    const $ = id => document.getElementById(id);
+    const token = new URLSearchParams(location.search).get('token') || '';
+    if (!token) { $('msg').className = 'msg err'; $('msg').textContent = 'This reset link is missing its token.'; $('btn').disabled = true; }
+    $('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pw = $('pw').value, pw2 = $('pw2').value, msg = $('msg'), btn = $('btn');
+      msg.className = 'msg'; msg.textContent = '';
+      if (pw.length < 8) { msg.className = 'msg err'; msg.textContent = 'Password must be at least 8 characters.'; return; }
+      if (pw !== pw2) { msg.className = 'msg err'; msg.textContent = 'Passwords do not match.'; return; }
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const r = await fetch('/api/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, password: pw }) });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) { msg.className = 'msg err'; msg.textContent = data.error || 'Could not reset password.'; btn.disabled = false; btn.textContent = 'Set new password'; return; }
+        msg.className = 'msg ok'; msg.textContent = 'Password updated. Redirecting to sign in…';
+        setTimeout(() => location.href = 'login.html', 1400);
+      } catch { msg.className = 'msg err'; msg.textContent = 'Network error. Is the server running?'; btn.disabled = false; btn.textContent = 'Set new password'; }
+    });
+  </script>
+</body>
+</html>

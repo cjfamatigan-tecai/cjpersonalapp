@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux Calendar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/flux.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="side"></aside>
+    <main class="main" id="main">
+      <header class="topbar" id="topbar"></header>
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="cal-head">
+            <div class="cal-title" id="calTitle"></div>
+            <div class="cal-nav">
+              <button class="icon-btn" id="prevM" title="Previous month" style="font-size:22px;font-weight:700">‹</button>
+              <button class="btn btn-ghost" id="todayBtn">Today</button>
+              <button class="icon-btn" id="nextM" title="Next month" style="font-size:22px;font-weight:700">›</button>
+            </div>
+          </div>
+          <div class="cal-dow"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Upcoming events</div><button class="btn" id="addEv">+ Add</button></div>
+          <div id="evList" class="list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/flux.js"></script>
+  <script>
+    const F = Flux;
+    const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const pad = n => String(n).padStart(2, '0');
+    const ymd = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+    const todayStr = () => { const n = new Date(); return ymd(n.getFullYear(), n.getMonth(), n.getDate()); };
+    let events = [], vy, vm;
+    { const n = new Date(); vy = n.getFullYear(); vm = n.getMonth(); }
+
+    async function load() { events = (await F.api('/events')).events; render(); }
+    function render() { renderGrid(); renderList(); }
+
+    function renderGrid() {
+      document.getElementById('calTitle').textContent = MON[vm] + ' ' + vy;
+      const first = new Date(vy, vm, 1).getDay();
+      const days = new Date(vy, vm + 1, 0).getDate();
+      const t0 = todayStr();
+      let html = '';
+      for (let i = 0; i < first; i++) html += `<div class="cal-cell empty"></div>`;
+      for (let d = 1; d <= days; d++) {
+        const ds = ymd(vy, vm, d);
+        const evs = events.filter(e => e.date === ds);
+        const dots = evs.slice(0, 4).map(() => '<i></i>').join('');
+        const badge = evs.length ? `<span class="d-badge">${evs.length}</span>` : '';
+        html += `<div class="cal-cell${ds === t0 ? ' today' : ''}" data-date="${ds}"><span class="d-num">${d}</span>${badge}<div class="d-dots">${dots}</div></div>`;
+      }
+      const grid = document.getElementById('calGrid');
+      grid.innerHTML = html;
+      grid.querySelectorAll('.cal-cell[data-date]').forEach(c => c.addEventListener('click', () => addEvent(c.dataset.date)));
+    }
+
+    function renderList() {
+      const t0 = todayStr();
+      const up = events.filter(e => e.date >= t0).slice(0, 12);
+      const el = document.getElementById('evList');
+      if (!up.length) { el.innerHTML = `<div style="color:var(--muted);font-weight:600;padding:12px 4px">No upcoming events. Click a day to add one.</div>`; return; }
+      el.innerHTML = up.map(e => {
+        const [y, m, d] = e.date.split('-').map(Number);
+        return `<div class="ev-row"><div class="ev-date"><div class="m">${MON3[m - 1]}</div><div class="d">${d}</div></div><div class="ev-main"><div class="ev-title"></div><div class="ev-sub"></div></div><button class="mini-btn" data-del="${e.id}" title="Delete">✕</button></div>`;
+      }).join('');
+      el.querySelectorAll('.ev-row').forEach((row, i) => {
+        row.querySelector('.ev-title').textContent = up[i].title;
+        row.querySelector('.ev-sub').textContent = [up[i].time, up[i].note].filter(Boolean).join('  ');
+      });
+      el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+        events = (await F.api('/events/' + b.dataset.del, 'DELETE')).events; render(); F.toast('Event deleted');
+      }));
+    }
+
+    async function addEvent(date) {
+      const title = prompt('Event title' + (date ? ' for ' + date : ''));
+      if (!title || !title.trim()) return;
+      const time = (prompt('Time (optional, e.g. 14:30)') || '').trim();
+      events = (await F.api('/events', 'POST', { title: title.trim(), date, time })).events;
+      render(); F.toast('Event added');
+    }
+
+    document.getElementById('prevM').addEventListener('click', () => { vm--; if (vm < 0) { vm = 11; vy--; } renderGrid(); });
+    document.getElementById('nextM').addEventListener('click', () => { vm++; if (vm > 11) { vm = 0; vy++; } renderGrid(); });
+    document.getElementById('todayBtn').addEventListener('click', () => { const n = new Date(); vy = n.getFullYear(); vm = n.getMonth(); renderGrid(); });
+    document.getElementById('addEv').addEventListener('click', () => addEvent(todayStr()));
+
+    (async function () {
+      await F.mountShell({ active: 'personal', subtitle: 'Calendar', extraNav: F.personalNav('calendar') });
+      await load();
+    })();
+  </script>
+</body>
+</html>

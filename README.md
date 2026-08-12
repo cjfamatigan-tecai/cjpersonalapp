@@ -26,4 +26,43 @@ You can also just open `index.html` directly in a browser without a server, thou
 
 ## Deploying
 
-Any static host works (Netlify, GitHub Pages, Vercel, etc.) — just point it at the repository root; no build command is needed.
+The portfolio (`index.html`) is static — any static host works (Netlify, GitHub Pages, Vercel, etc.).
+
+---
+
+## Flux dashboard app
+
+`server/server.mjs` is a zero-dependency Node backend (Node 22.5+) powering the **Flux** app:
+secure multi-user auth, tasks, goals, calendar, statistics, documents, teams, industry
+dashboards, a Slack webhook integration, and password reset.
+
+Run it:
+
+```bash
+npm start          # http://localhost:5000  (set PORT to change)
+```
+
+It needs an always-on Node host (Render / Railway / Fly / a VPS), **not** a static host.
+Use HTTPS in production — the session cookie's `Secure` flag turns on automatically.
+
+### Password-reset email (optional)
+
+Reset links are generated as secure, single-use, 1-hour tokens. To actually email them,
+set **one** provider via environment variables (both use plain HTTPS APIs — still no npm deps):
+
+```bash
+# Option A — Resend (https://resend.com)
+RESEND_API_KEY=re_xxx
+FLUX_MAIL_FROM="Flux <no-reply@yourdomain.com>"
+
+# Option B — SendGrid
+SENDGRID_API_KEY=SG.xxx
+FLUX_MAIL_FROM="no-reply@yourdomain.com"
+```
+
+With no key set, the reset link is logged to the server console and (on localhost only)
+shown on the Forgot-password page for convenience.
+
+### Data
+
+User data is stored in `server/data.db` (SQLite, gitignored). Delete `server/data.db*` to reset.

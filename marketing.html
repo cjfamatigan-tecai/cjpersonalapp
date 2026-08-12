@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux Marketing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/flux.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="side"></aside>
+    <main class="main" id="main">
+      <header class="topbar" id="topbar"></header>
+
+      <section class="grid g4" id="kpis"></section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head">
+            <div><div class="card-title">Spend vs conversions</div><div class="card-sub" id="spendSub"></div></div>
+            <div class="seg" id="rangeSeg"><button data-r="7" class="active">7d</button><button data-r="30">30d</button><button data-r="90">90d</button></div>
+          </div>
+          <div class="legend" style="margin-bottom:12px"><span><i style="background:var(--c1)"></i>Spend</span><span><i style="background:var(--c3)"></i>Conversions</span></div>
+          <div id="spendChart"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><div class="card-title">Budget pacing</div><div class="card-sub" id="paceSub"></div></div></div>
+          <div style="display:flex;justify-content:center;margin:8px 0 14px" id="paceGauge"></div>
+          <div id="paceMeta" class="list"></div>
+        </div>
+      </section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head"><div class="card-title">Channel performance</div><button class="btn btn-ghost" id="expChannels">Export CSV</button></div>
+          <div class="tbl-wrap"><table class="tbl" id="channelTable"></table></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title">Traffic sources</div></div>
+          <div style="display:flex;justify-content:center;margin:6px 0 16px" id="sourceDonut"></div>
+          <div class="legend" style="flex-direction:column;gap:10px" id="sourceLegend"></div>
+        </div>
+      </section>
+
+      <section class="grid g3">
+        <div class="card span-2">
+          <div class="card-head"><div class="card-title">Lead inbox</div><div id="leadChips" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+          <div class="tbl-wrap"><table class="tbl" id="leadTable"></table></div>
+        </div>
+        <div class="card dark">
+          <div class="card-head"><div class="card-title" style="color:var(--on-dark)">Campaign leaderboard</div></div>
+          <div id="campaigns" class="list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/flux.js"></script>
+  <script>
+    const F = Flux;
+    const gen = (n,b,v)=>{const o=[];let x=b;for(let i=0;i<n;i++){x=Math.max(b*0.4,x+(Math.random()-0.45)*v);o.push(Math.round(x));}return o;};
+    const SPEND={7:gen(7,18000,5000),30:gen(30,17000,6000),90:gen(90,16000,7000)};
+    const CONV={7:gen(7,140,50),30:gen(30,135,55),90:gen(90,130,60)};
+    const sample=(a,n)=>{const o=[];for(let i=0;i<n;i++)o.push(a[Math.floor(i/(n-1)*(a.length-1))]);return o;};
+
+    const channels=[
+      {name:'Google Ads',spend:184000,clicks:42100,conv:612,cpa:301,roas:4.2},
+      {name:'Meta Ads',spend:146000,clicks:58300,conv:498,cpa:293,roas:3.8},
+      {name:'TikTok',spend:72000,clicks:39400,conv:214,cpa:336,roas:2.9},
+      {name:'LinkedIn',spend:58000,clicks:8900,conv:96,cpa:604,roas:2.1},
+      {name:'Email',spend:12000,clicks:15600,conv:281,cpa:43,roas:9.4},
+    ];
+    const sources=[{label:'Paid search',value:38},{label:'Paid social',value:29},{label:'Organic',value:18},{label:'Email',value:9},{label:'Referral',value:6}];
+    let leads=[
+      {name:'GlobalTech Inc.',src:'Google Ads',score:'Hot',status:'New'},
+      {name:'Maria Lopez',src:'Meta Ads',score:'Warm',status:'Contacted'},
+      {name:'BrightBuild Co.',src:'LinkedIn',score:'Hot',status:'New'},
+      {name:'James Uy',src:'Email',score:'Cold',status:'Lost'},
+      {name:'Nova Retail',src:'TikTok',score:'Warm',status:'Won'},
+      {name:'Peak Fitness',src:'Referral',score:'Hot',status:'Contacted'},
+    ];
+    const campaigns=[
+      {name:'Summer Sale (Search)',roas:5.6,up:true},
+      {name:'Retargeting (Meta)',roas:4.9,up:true},
+      {name:'Brand Awareness (TikTok)',roas:1.8,up:false},
+      {name:'Newsletter Q3',roas:9.1,up:true},
+    ];
+
+    function renderKPIs(){
+      document.getElementById('kpis').innerHTML=[
+        F.kpiTile({icon:F.I.megaphone,value:F.money(472000),label:'Total spend (MTD)',delta:6.2,dark:true}),
+        F.kpiTile({icon:F.I.up,value:F.fmt(1701),label:'Conversions',delta:11.3}),
+        F.kpiTile({icon:F.I.grid,value:F.money(278),label:'Cost per acquisition',delta:-4.1}),
+        F.kpiTile({icon:F.I.cart,value:'4.1×',label:'Blended ROAS',delta:5.5}),
+      ].join('');
+    }
+    function renderSpend(r){
+      const sp=SPEND[r],cv=CONV[r],mx=Math.max(...sp),mxc=Math.max(...cv);
+      const cvS=cv.map(c=>c/mxc*mx);
+      const labels=r==7?['Mon','Tue','Wed','Thu','Fri','Sat','Sun']:(r==30?['4w','3w','2w','1w','now']:['3mo','2mo','1mo','now']);
+      F.areaChart(document.getElementById('spendChart'),{series:[
+        {values:r==7?sp:sample(sp,labels.length),color:F.palette()[0],fill:true},
+        {values:r==7?cvS:sample(cvS,labels.length),color:F.palette()[2],dashed:true},
+      ],labels,height:170});
+      document.getElementById('spendSub').textContent=`${F.money(sp.reduce((a,b)=>a+b,0))} spent, ${F.fmt(cv.reduce((a,b)=>a+b,0))} conversions`;
+    }
+    function renderPace(){
+      const spent=472000,budget=650000,pct=Math.round(spent/budget*100);
+      F.gauge(document.getElementById('paceGauge'),{value:pct,center:pct+'%',sub:'of budget',size:150});
+      document.getElementById('paceSub').textContent='12 days left in cycle';
+      document.getElementById('paceMeta').innerHTML=[
+        ['Spent',F.money(spent)],['Budget',F.money(budget)],['Projected',F.money(722000)+' ⚠︎']
+      ].map(([k,v])=>`<div class="list-row"><div class="l-main"><div class="l-sub">${k}</div></div><b style="color:var(--ink)">${v}</b></div>`).join('');
+    }
+    function renderChannels(){
+      document.getElementById('channelTable').innerHTML=`<thead><tr><th>Channel</th><th class="num">Spend</th><th class="num">Clicks</th><th class="num">Conv.</th><th class="num">CPA</th><th class="num">ROAS</th></tr></thead><tbody>${
+        channels.map(c=>`<tr><td class="prod">${c.name}</td><td class="num">${F.money(c.spend)}</td><td class="num">${F.fmt(c.clicks)}</td><td class="num">${c.conv}</td><td class="num">${F.money(c.cpa)}</td><td class="num"><span class="badge ${c.roas>=3?'ok':'warn'}">${c.roas}×</span></td></tr>`).join('')
+      }</tbody>`;
+    }
+    function renderSources(){
+      F.donut(document.getElementById('sourceDonut'),{segments:sources,center:'100%',sub:'traffic',size:160});
+      const pal=F.palette();
+      document.getElementById('sourceLegend').innerHTML=sources.map((s,i)=>`<span style="justify-content:space-between;width:100%"><span style="display:flex;align-items:center;gap:7px"><i style="background:${pal[i]}"></i>${s.label}</span><b style="color:var(--ink)">${s.value}%</b></span>`).join('');
+    }
+    const LST=['All','New','Contacted','Won','Lost']; let lf='All';
+    function renderLeadChips(){
+      document.getElementById('leadChips').innerHTML=LST.map(s=>`<button class="chip${s===lf?' active':''}" data-s="${s}">${s}</button>`).join('');
+      document.querySelectorAll('#leadChips .chip').forEach(c=>c.addEventListener('click',()=>{lf=c.dataset.s;renderLeadChips();renderLeads();}));
+    }
+    function renderLeads(){
+      const rows=leads.filter(l=>lf==='All'||l.status===lf);
+      const sc={Hot:'bad',Warm:'warn',Cold:''}, st={New:'',Contacted:'warn',Won:'ok',Lost:'bad'};
+      document.getElementById('leadTable').innerHTML=`<thead><tr><th>Lead</th><th>Source</th><th>Score</th><th>Status</th><th></th></tr></thead><tbody>${
+        rows.map((l,i)=>`<tr><td class="prod">${F.escapeHtml(l.name)}</td><td>${l.src}</td><td><span class="badge ${sc[l.score]}">${l.score}</span></td><td><span class="badge dot ${st[l.status]}">${l.status}</span></td><td><button class="mini-btn" data-adv="${F.escapeHtml(l.name)}">Advance</button></td></tr>`).join('')||`<tr><td colspan="5" style="text-align:center;color:var(--muted)">No leads</td></tr>`
+      }</tbody>`;
+      document.querySelectorAll('#leadTable [data-adv]').forEach(b=>b.addEventListener('click',()=>{const l=leads.find(x=>x.name===b.dataset.adv);const f=['New','Contacted','Won'];const i=f.indexOf(l.status);if(i>-1&&i<f.length-1){l.status=f[i+1];renderLeads();F.toast(l.name+' → '+l.status);}else F.toast('No further step');}));
+    }
+    function renderCampaigns(){
+      document.getElementById('campaigns').innerHTML=campaigns.map(c=>`<div class="list-row"><div class="l-ico" style="background:var(--dark-2);color:var(--on-dark)">${c.up?F.I.up:F.I.down}</div><div class="l-main"><div class="l-title" style="color:var(--on-dark)">${F.escapeHtml(c.name)}</div><div class="l-sub" style="color:var(--on-dark-muted)">ROAS ${c.roas}×</div></div><button class="mini-btn" data-c="${F.escapeHtml(c.name)}">${c.up?'Scale':'Pause'}</button></div>`).join('');
+      document.querySelectorAll('#campaigns [data-c]').forEach(b=>b.addEventListener('click',()=>F.toast(b.textContent+': '+b.dataset.c)));
+    }
+
+    document.getElementById('expChannels').addEventListener('click',()=>F.exportCSV('channel-performance.csv',[['Channel','Spend','Clicks','Conversions','CPA','ROAS'],...channels.map(c=>[c.name,c.spend,c.clicks,c.conv,c.cpa,c.roas])]));
+    window.onExportReport=()=>F.exportCSV('marketing-report.csv',[['Metric','Value'],['Spend MTD',472000],['Conversions',1701],['CPA',278],['ROAS','4.1x'],[],['Channel','Spend','Conv','ROAS'],...channels.map(c=>[c.name,c.spend,c.conv,c.roas])]);
+
+    (async function(){
+      await F.mountShell({active:'marketing',subtitle:'Performance across all channels'});
+      renderKPIs();renderSpend(7);renderPace();renderChannels();renderSources();renderLeadChips();renderLeads();renderCampaigns();
+      document.querySelectorAll('#rangeSeg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderSpend(+b.dataset.r);}));
+      document.addEventListener('flux:theme',()=>{renderSpend(+document.querySelector('#rangeSeg .active').dataset.r);renderSources();renderPace();});
+    })();
+  </script>
+</body>
+</html>

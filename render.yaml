@@ -1,0 +1,24 @@
+# Render Blueprint — deploys the Flux app with a persistent disk for SQLite.
+# In the Render dashboard: New → Blueprint → pick this repo. Then set RESEND_API_KEY.
+services:
+  - type: web
+    name: flux
+    runtime: node
+    plan: starter          # a persistent disk requires a paid instance; use "free" for an ephemeral demo (data resets on redeploy)
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /login.html
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: DB_PATH
+        value: /data/flux.db
+      # --- optional: real password-reset emails ---
+      # - key: RESEND_API_KEY
+      #   sync: false                       # set the value in the dashboard (kept out of git)
+      # - key: FLUX_MAIL_FROM
+      #   value: "Flux <no-reply@yourdomain.com>"
+    disk:
+      name: flux-data
+      mountPath: /data
+      sizeGB: 1
