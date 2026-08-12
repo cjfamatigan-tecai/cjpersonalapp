@@ -616,9 +616,10 @@ const MIME = {
   '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json',
   '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
 };
+// The dashboard and the industry dashboards are publicly viewable with built-in demo data
+// (so the live site always shows a full app without a login). The data-driven personal
+// pages that need a real account stay gated.
 const PROTECTED = new Set([
-  '/dashboard.html', '/ecommerce.html', '/marketing.html',
-  '/realestate.html', '/dental.html', '/hvac.html',
   '/calendar.html', '/statistics.html', '/documents.html', '/mytasks.html',
 ]);
 

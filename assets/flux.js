@@ -78,10 +78,11 @@
   /* ---------- shell (sidebar + topbar) ---------- */
   async function mountShell({ active, subtitle, extraNav }) {
     // guard: must be logged in
-    let user;
-    try { user = (await api('/me')).user; } catch { return; }
+    // tolerate a guest (public demo) — don't redirect to login on these viewable dashboards
+    let user = { name: '' };
+    try { const r = await fetch('/api/me'); if (r.ok) user = (await r.json()).user; } catch {}
     let avatarUrl = null;
-    try { avatarUrl = (await api('/prefs')).prefs.avatar || null; } catch {}
+    try { const rp = await fetch('/api/prefs'); if (rp.ok) avatarUrl = (await rp.json()).prefs.avatar || null; } catch {}
 
     // sidebar
     const side = document.getElementById('side');

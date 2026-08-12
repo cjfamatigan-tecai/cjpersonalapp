@@ -725,6 +725,17 @@
     /* ---------- STATE (loaded from the API) ---------- */
     let tasks = [];
     let goals = [];
+    let demoMode = false;
+    const DEMO_TASKS = [
+      { id: 'd1', icon: 'gift', title: 'Buy Susan a gift for her birthday', date: 'Today', bell: true, pinned: false },
+      { id: 'd2', icon: 'cross', title: "Doctor's appointment on Tuesday", date: '02.09.2026', bell: false, pinned: false },
+    ];
+    const DEMO_GOALS = [
+      { id: 'g1', text: 'Read 2 books', done: true },
+      { id: 'g2', text: 'Sports every day', done: false },
+      { id: 'g3', text: 'Complete the course', done: false },
+      { id: 'g4', text: 'Bend down with a parachute', done: false },
+    ];
     const scroller = document.getElementById('taskScroller');
     const goalList = document.getElementById('goalList');
     const goalRing = document.getElementById('goalRing');
@@ -748,10 +759,15 @@
 
     /* ---------- API helper ---------- */
     async function api(path, method = 'GET', body) {
+      // in the public demo (not signed in) changes aren't saved — prompt to sign in instead
+      if (demoMode && method !== 'GET') { showToast('Sign in to save your changes'); throw new Error('demo'); }
       const opts = { method, headers: {} };
       if (body !== undefined) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
       const r = await fetch('/api' + path, opts);
-      if (r.status === 401) { location.href = '/login.html'; throw new Error('unauthenticated'); }
+      if (r.status === 401) {
+        if (demoMode) throw new Error('unauthenticated');
+        location.href = '/login.html'; throw new Error('unauthenticated');
+      }
       const data = await r.json().catch(() => ({}));
       if (!r.ok) { showToast(data.error || 'Something went wrong'); throw new Error(data.error || 'request failed'); }
       return data;
@@ -1306,15 +1322,28 @@
     })();
 
     (async function init() {
-      try {
-        const { user } = await api('/me'); me = user;
+      let user = null;
+      try { const r = await fetch('/api/me'); if (r.ok) user = (await r.json()).user; } catch {}
+      if (user) {
+        // signed in — load the real account
+        me = user; demoMode = false;
         const first = (user.name || '').split(' ')[0] || 'there';
         document.getElementById('greeting').textContent = `Hi, ${first}! 👋`;
         document.getElementById('avatarInitials').textContent = initialsOf(user.name);
-        applyState(await api('/state'));
+        try { applyState(await api('/state')); renderProjects(); await loadPrefs(); } catch (e) {}
+      } else {
+        // public demo — not signed in: show the dashboard fully populated with sample data
+        demoMode = true;
+        document.getElementById('greeting').textContent = 'Hi there! 👋';
+        document.getElementById('avatarInitials').textContent = '👤';
+        tasks = DEMO_TASKS.map(t => ({ ...t }));
+        goals = DEMO_GOALS.map(g => ({ ...g }));
+        prefs = { integrations: { slack: false, notion: false }, plugins: [], teams: [{ name: 'SEO' }, { name: 'Marketing' }], activeTeam: null, avatar: null };
+        render();
+        renderTeams();
         renderProjects();
-        await loadPrefs();
-      } catch (e) { /* redirect already handled for 401 */ }
+        setAvatar(null);
+      }
     })();
   </script>
 </body>
