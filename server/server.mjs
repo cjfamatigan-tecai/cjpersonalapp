@@ -154,6 +154,19 @@ function seedUser(userId) {
   doc.run(userId, 'Project brief', 'Goal: deliver a clean, monochrome productivity dashboard with multi-user auth.\n\nScope: tasks, goals, calendar, statistics, documents, and industry dashboards.', now - 7200e3);
 }
 
+// Always-available demo login (recreated on every boot, so it survives the free tier's
+// ephemeral database being wiped when the instance sleeps). Disable with SEED_DEMO=0.
+const DEMO_EMAIL = process.env.DEMO_EMAIL || 'demo@flux.app';
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || 'fluxdemo123';
+function ensureDemoUser() {
+  if (process.env.SEED_DEMO === '0') return;
+  if (db.prepare('SELECT id FROM users WHERE email = ?').get(DEMO_EMAIL)) return;
+  const info = db.prepare('INSERT INTO users (name, email, pass_hash, created_at) VALUES (?,?,?,?)')
+    .run('Demo User', DEMO_EMAIL, hashPassword(DEMO_PASSWORD), Date.now());
+  seedUser(Number(info.lastInsertRowid));
+  console.log(`Demo login ready → ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
+}
+
 /* ---------------- request utilities ---------------- */
 function parseCookies(req) {
   const out = {};
@@ -616,17 +629,17 @@ const MIME = {
   '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.json': 'application/json',
   '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
 };
-// The dashboard and the industry dashboards are publicly viewable with built-in demo data
-// (so the live site always shows a full app without a login). The data-driven personal
-// pages that need a real account stay gated.
+// Everything in the app requires a login. The base URL opens the sign-in screen.
 const PROTECTED = new Set([
+  '/dashboard.html', '/ecommerce.html', '/marketing.html',
+  '/realestate.html', '/dental.html', '/hvac.html',
   '/calendar.html', '/statistics.html', '/documents.html', '/mytasks.html',
 ]);
 
 function serveStatic(req, res, url) {
   let urlPath = decodeURIComponent(url.pathname);
-  // index.html IS the Flux dashboard (public demo). The portfolio lives at /portfolio.html.
-  if (urlPath === '/') urlPath = '/index.html';
+  // base URL → the sign-in screen (login → dashboard). Portfolio stays at /index.html.
+  if (urlPath === '/') urlPath = '/login.html';
 
   // gate protected pages behind a valid session
   if (PROTECTED.has(urlPath)) {
@@ -647,6 +660,7 @@ function serveStatic(req, res, url) {
 }
 
 /* ---------------- server ---------------- */
+ensureDemoUser();   // seed the always-available demo login (after all helpers are initialized)
 http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
