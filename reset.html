@@ -33,9 +33,15 @@
     .msg.err { color:var(--err); } .msg.ok { color:var(--ok); }
     .switch { text-align:center; margin-top:22px; font-size:13.5px; color:var(--muted); }
     .switch a { color:var(--ink); font-weight:700; text-decoration:none; } .switch a:hover { text-decoration:underline; }
+    .theme-toggle { position:fixed; top:20px; right:20px; width:44px; height:44px; border-radius:50%; background:var(--card); border:1px solid var(--card-bord); display:grid; place-items:center; cursor:pointer; color:var(--ink); box-shadow:var(--shadow); z-index:10; transition:transform .15s; }
+    .theme-toggle:hover { transform:translateY(-1px); }
+    .theme-toggle svg { width:20px; height:20px; }
   </style>
 </head>
 <body>
+  <button class="theme-toggle" id="themeToggle" title="Toggle light / dark" aria-label="Toggle theme">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" stroke-linejoin="round"/></svg>
+  </button>
   <div class="card">
     <div class="brand"><div class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7l8-4 8 4-8 4-8-4z" fill="currentColor"/><path d="M4 12l8 4 8-4M4 17l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="brand-name">Flux</span></div>
     <h1>Set a new password</h1>
@@ -58,6 +64,11 @@
   <script>
     const root = document.documentElement;
     if (localStorage.getItem('flux-theme')) root.setAttribute('data-theme', localStorage.getItem('flux-theme'));
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      localStorage.setItem('flux-theme', next);
+    });
     const $ = id => document.getElementById(id);
     const token = new URLSearchParams(location.search).get('token') || '';
     if (!token) { $('msg').className = 'msg err'; $('msg').textContent = 'This reset link is missing its token.'; $('btn').disabled = true; }
