@@ -36,6 +36,14 @@ The portfolio (`index.html`) is static — any static host works (Netlify, GitHu
 secure multi-user auth, tasks, goals, calendar, statistics, documents, teams, industry
 dashboards, a Slack webhook integration, and password reset.
 
+### One-click deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/cjfamatigan-tecai/cjpersonalapp)
+
+Click the button → sign in to Render → **Authorize GitHub** → **Apply**. Render reads
+`render.yaml` and provisions the web service + persistent disk automatically, then gives you an
+HTTPS URL. (First deploy ~2 min.) See below for the manual steps and the free/no-disk option.
+
 Run it:
 
 ```bash
