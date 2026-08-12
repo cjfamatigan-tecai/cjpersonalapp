@@ -625,9 +625,8 @@ const PROTECTED = new Set([
 
 function serveStatic(req, res, url) {
   let urlPath = decodeURIComponent(url.pathname);
-  // base URL → the Flux dashboard (protected, so signed-out users are redirected to login).
-  // the portfolio remains available at /index.html
-  if (urlPath === '/') urlPath = '/dashboard.html';
+  // index.html IS the Flux dashboard (public demo). The portfolio lives at /portfolio.html.
+  if (urlPath === '/') urlPath = '/index.html';
 
   // gate protected pages behind a valid session
   if (PROTECTED.has(urlPath)) {
