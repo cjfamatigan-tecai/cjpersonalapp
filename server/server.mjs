@@ -283,15 +283,30 @@ async function sendEmail({ to, subject, html }) {
 const ymd = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 const today = () => ymd(new Date());
 
-/* ---------------- rate limiting (login) ---------------- */
+/* ---------------- rate limiting ---------------- */
 const attempts = new Map(); // key -> { count, first }
+const RL_WIN = 15 * 60 * 1000, RL_MAX = 8;
+// request-based limiter (used for /forgot): increments on every call
 function rateLimited(key) {
-  const now = Date.now(), win = 15 * 60 * 1000, max = 8;
+  const now = Date.now();
   const rec = attempts.get(key);
-  if (!rec || now - rec.first > win) { attempts.set(key, { count: 1, first: now }); return false; }
+  if (!rec || now - rec.first > RL_WIN) { attempts.set(key, { count: 1, first: now }); return false; }
   rec.count++;
-  return rec.count > max;
+  return rec.count > RL_MAX;
 }
+// failure-based limiter (used for /login): only counts FAILED attempts, cleared on success,
+// so logging in and out normally never trips the block
+function loginBlocked(key) {
+  const rec = attempts.get(key);
+  return !!(rec && rec.count > RL_MAX && Date.now() - rec.first <= RL_WIN);
+}
+function noteLoginFail(key) {
+  const now = Date.now();
+  const rec = attempts.get(key);
+  if (!rec || now - rec.first > RL_WIN) attempts.set(key, { count: 1, first: now });
+  else rec.count++;
+}
+function clearLoginFails(key) { attempts.delete(key); }
 
 /* ---------------- state serializer ---------------- */
 function userState(userId) {
@@ -365,10 +380,14 @@ async function handleApi(req, res, url) {
     let b; try { b = await readJson(req); } catch (e) { return sendJson(res, 400, { error: e.message }); }
     const email = clean(b.email).toLowerCase(), pw = b.password || '';
     const ip = req.socket.remoteAddress || 'unknown';
-    if (rateLimited(ip + '|' + email)) return sendJson(res, 429, { error: 'Too many attempts. Try again in 15 minutes.' });
+    const rlKey = ip + '|' + email;
+    if (loginBlocked(rlKey)) return sendJson(res, 429, { error: 'Too many failed attempts. Try again in 15 minutes.' });
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-    if (!user || !verifyPassword(pw, user.pass_hash))
+    if (!user || !verifyPassword(pw, user.pass_hash)) {
+      noteLoginFail(rlKey); // only failures count toward the limit
       return sendJson(res, 401, { error: 'Invalid email or password.' });
+    }
+    clearLoginFails(rlKey); // successful login resets the counter
     const { token, expires } = createSession(user.id);
     return sendJson(res, 200, { user: { id: user.id, name: user.name, email: user.email } }, sessionCookie(req, token, expires));
   }
