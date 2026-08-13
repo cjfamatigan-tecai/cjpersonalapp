@@ -51,13 +51,14 @@
   <div class="card">
     <div class="brand"><div class="brand-mark"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7l8-4 8 4-8 4-8-4z" fill="currentColor"/><path d="M4 12l8 4 8-4M4 17l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="brand-name">Flux</span></div>
     <h1>Reset your password</h1>
-    <p class="sub">Enter your email and we'll send a reset link.</p>
+    <p class="sub">Enter your email and we'll send a 6-digit verification code.</p>
     <form id="form" novalidate>
       <label for="email">Email</label>
       <input id="email" type="email" placeholder="you@example.com" autocomplete="email" required />
-      <button class="btn" id="btn" type="submit">Send reset link</button>
+      <button class="btn" id="btn" type="submit">Send verification code</button>
       <div class="msg" id="msg"></div>
       <div class="devlink" id="devlink"></div>
+      <a class="btn" id="continueBtn" style="display:none;text-decoration:none;text-align:center">Enter code →</a>
     </form>
     <div class="switch"><a href="login.html">Back to sign in</a></div>
   </div>
@@ -81,13 +82,17 @@
         const r = await fetch('/api/forgot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
         const data = await r.json().catch(() => ({}));
         msg.className = 'msg ok';
-        msg.textContent = 'If an account exists for that email, a reset link has been sent.';
-        if (data.devResetUrl) {
+        msg.textContent = 'If an account exists for that email, a verification code has been sent.';
+        // show the "enter code" button, carrying the email to the reset page
+        const cont = $('continueBtn');
+        cont.href = 'reset.html?email=' + encodeURIComponent(email);
+        cont.style.display = 'block';
+        if (data.devCode) {
           const dl = $('devlink'); dl.classList.add('show');
-          dl.innerHTML = 'No email service is configured, so here is your reset link for this demo:<br><a href="' + data.devResetUrl + '">Open reset link</a>';
+          dl.innerHTML = 'No email service is configured, so here is your code for this demo:<br><b style="font-size:20px;letter-spacing:4px">' + data.devCode + '</b>';
         }
       } catch { msg.className = 'msg err'; msg.textContent = 'Network error. Is the server running?'; }
-      finally { btn.disabled = false; btn.textContent = 'Send reset link'; }
+      finally { btn.disabled = false; btn.textContent = 'Send verification code'; }
     });
   </script>
 </body>

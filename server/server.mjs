@@ -90,6 +90,13 @@ db.exec(`
     expires_at INTEGER NOT NULL,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+  CREATE TABLE IF NOT EXISTS reset_codes (
+    user_id INTEGER PRIMARY KEY,
+    code TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
 // migration: add tasks.archived to existing databases (no-op if it already exists)
 try { db.exec('ALTER TABLE tasks ADD COLUMN archived INTEGER NOT NULL DEFAULT 0'); } catch {}
@@ -382,35 +389,40 @@ async function handleApi(req, res, url) {
     const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
     const payload = { ok: true }; // always generic — never reveal whether the email exists
     if (user) {
-      db.prepare('DELETE FROM resets WHERE user_id = ?').run(user.id);
-      const token = newToken();
-      const expires = Date.now() + 3600e3; // 1 hour
-      db.prepare('INSERT INTO resets (token, user_id, expires_at) VALUES (?,?,?)').run(token, user.id, expires);
-      const origin = `${isSecure(req) ? 'https' : 'http'}://${req.headers.host}`;
-      const url = `${origin}/reset.html?token=${token}`;
+      db.prepare('DELETE FROM reset_codes WHERE user_id = ?').run(user.id);
+      const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0'); // 6-digit code
+      const expires = Date.now() + 15 * 60 * 1000; // 15 minutes
+      db.prepare('INSERT INTO reset_codes (user_id, code, expires_at, attempts) VALUES (?,?,?,0)').run(user.id, code, expires);
       const html = `<div style="font-family:system-ui,sans-serif;max-width:480px">
-        <h2 style="font-weight:800">Reset your Flux password</h2>
-        <p>Click the button below to choose a new password. This link expires in 1 hour.</p>
-        <p><a href="${url}" style="display:inline-block;background:#17181a;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:12px">Reset password</a></p>
-        <p style="color:#9a9ba0;font-size:13px">If you didn't request this, you can safely ignore this email.</p>
-        <p style="color:#9a9ba0;font-size:12px">Or paste this link: ${url}</p></div>`;
-      const emailed = emailConfigured() ? await sendEmail({ to: email, subject: 'Reset your Flux password', html }) : false;
-      console.log(`[password reset] ${email} -> ${url}${emailed ? ' (emailed)' : ''}`);
-      // if we couldn't email it, expose the link over plain http (localhost/demo) only — never over https
-      if (!emailed && !isSecure(req)) payload.devResetUrl = url;
+        <h2 style="font-weight:800">Your Flux verification code</h2>
+        <p>Use this code to reset your password. It expires in 15 minutes.</p>
+        <p style="font-size:34px;font-weight:800;letter-spacing:8px;background:#f3f3f5;color:#17181a;padding:16px 20px;border-radius:14px;text-align:center">${code}</p>
+        <p style="color:#9a9ba0;font-size:13px">If you didn't request this, you can safely ignore this email.</p></div>`;
+      const emailed = emailConfigured() ? await sendEmail({ to: email, subject: `Your Flux code: ${code}`, html }) : false;
+      console.log(`[reset code] ${email} -> ${code}${emailed ? ' (emailed)' : ''}`);
+      // if no email service is configured, surface the code over plain http (localhost/demo) only
+      if (!emailed && !isSecure(req)) payload.devCode = code;
     }
     return sendJson(res, 200, payload);
   }
   if (route === '/reset') {
     if (method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' });
     let b; try { b = await readJson(req); } catch (e) { return sendJson(res, 400, { error: e.message }); }
-    const token = String(b.token || '');
+    const email = clean(b.email).toLowerCase();
+    const code = String(b.code || '').trim();
     if (!validPw(b.password)) return sendJson(res, 400, { error: 'Password must be at least 8 characters.' });
-    const row = db.prepare('SELECT user_id FROM resets WHERE token = ? AND expires_at > ?').get(token, Date.now());
-    if (!row) return sendJson(res, 400, { error: 'This reset link is invalid or has expired.' });
-    db.prepare('UPDATE users SET pass_hash = ? WHERE id = ?').run(hashPassword(b.password), row.user_id);
-    db.prepare('DELETE FROM resets WHERE token = ?').run(token);
-    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.user_id); // sign out everywhere
+    const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (!user) return sendJson(res, 400, { error: 'Invalid email or code.' });
+    const row = db.prepare('SELECT * FROM reset_codes WHERE user_id = ?').get(user.id);
+    if (!row || row.expires_at < Date.now()) return sendJson(res, 400, { error: 'This code has expired. Request a new one.' });
+    if (row.attempts >= 5) { db.prepare('DELETE FROM reset_codes WHERE user_id = ?').run(user.id); return sendJson(res, 429, { error: 'Too many attempts. Request a new code.' }); }
+    if (row.code !== code) {
+      db.prepare('UPDATE reset_codes SET attempts = attempts + 1 WHERE user_id = ?').run(user.id);
+      return sendJson(res, 400, { error: 'Incorrect code. Please try again.' });
+    }
+    db.prepare('UPDATE users SET pass_hash = ? WHERE id = ?').run(hashPassword(b.password), user.id);
+    db.prepare('DELETE FROM reset_codes WHERE user_id = ?').run(user.id);
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id); // sign out everywhere
     return sendJson(res, 200, { ok: true });
   }
 

@@ -52,8 +52,10 @@ Flux is a monochrome, multi-user productivity dashboard. **Zero npm dependencies
   Duplicate email → **"You have already registered this account. Please sign in instead."** (the login
   page then flips to sign-in with the email preserved).
 - **Sign in / out:** session cookie; logout clears it.
-- **Forgot/reset:** secure single-use token (1-hour expiry); link emailed if `RESEND_API_KEY`/
-  `SENDGRID_API_KEY` is set, otherwise logged to console and shown on the forgot page over http only.
+- **Forgot / reset (verification code):** on `forgot.html` the user enters their email and Flux emails
+  a **6-digit code** (15-min expiry, max 5 attempts, single-use). On `reset.html` they enter email +
+  code + new password to change it. The code is emailed if `RESEND_API_KEY`/`SENDGRID_API_KEY` is set;
+  otherwise it's logged to the server console and shown on the forgot page over http (localhost/demo).
 - **Demo account:** `demo@flux.app` / `fluxdemo123`, auto-recreated on every server boot (disable with
   `SEED_DEMO=0`). Survives the free-tier database being wiped.
 
@@ -118,9 +120,9 @@ persistent disk. See `DEPLOY.md`. Live: https://flux-rhwx.onrender.com
 | Area | Limitation |
 |---|---|
 | Free-tier data | No persistent disk → SQLite wiped on redeploy/sleep (demo account is auto-reseeded) |
-| Reset email | Only sends if `RESEND_API_KEY`/`SENDGRID_API_KEY` is configured |
+| Reset code email | Only sends if `RESEND_API_KEY`/`SENDGRID_API_KEY` is configured (else shown on localhost) |
 | Business dashboards | Show realistic sample data, not connected to a real data source yet |
 | Slack "Settings" (shell) | Business-dashboard profile menu links to the personal dashboard for full Settings |
 
 ---
-_Last updated: 2026-08-14 — added clickable profile menu to the business dashboards (shared shell) and a clearer duplicate-signup message._
+_Last updated: 2026-08-14 — password reset now uses a 6-digit email verification code (forgot → code → reset); added clickable profile menu to the business dashboards and a clearer duplicate-signup message._
