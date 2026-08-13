@@ -178,6 +178,26 @@ function ensureDemoUser() {
   console.log(`Demo login ready → ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
 }
 
+// Always-available ADMIN login for the owner. On every boot this makes sure the admin account
+// exists with a known password and the admin role — so you can always sign in, even after the
+// free tier wipes the database or if you forgot the password. Disable with SEED_ADMIN=0; change
+// the password with ADMIN_PASSWORD. (Once you have a persistent disk you can set SEED_ADMIN=0
+// to keep whatever password you set in Settings.)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'fluxadmin123';
+function ensureAdminUser() {
+  if (process.env.SEED_ADMIN === '0') return;
+  const hash = hashPassword(ADMIN_PASSWORD);
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(ADMIN_EMAIL);
+  if (existing) {
+    db.prepare('UPDATE users SET pass_hash = ?, role = ? WHERE id = ?').run(hash, 'admin', existing.id);
+  } else {
+    const info = db.prepare('INSERT INTO users (name, email, pass_hash, created_at, role) VALUES (?,?,?,?,?)')
+      .run('Christian Jay', ADMIN_EMAIL, hash, Date.now(), 'admin');
+    seedUser(Number(info.lastInsertRowid));
+  }
+  console.log(`Admin login ready → ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
+}
+
 /* ---------------- request utilities ---------------- */
 function parseCookies(req) {
   const out = {};
@@ -706,6 +726,7 @@ function serveStatic(req, res, url) {
 
 /* ---------------- server ---------------- */
 ensureDemoUser();   // seed the always-available demo login (after all helpers are initialized)
+ensureAdminUser();  // ensure the owner can always sign in as admin
 http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
