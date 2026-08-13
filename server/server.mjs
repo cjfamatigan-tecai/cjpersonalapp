@@ -344,7 +344,7 @@ async function handleApi(req, res, url) {
     if (!validEmail(email)) return sendJson(res, 400, { error: 'Enter a valid email address.' });
     if (!validPw(pw)) return sendJson(res, 400, { error: 'Password must be at least 8 characters.' });
     const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-    if (exists) return sendJson(res, 409, { error: 'An account with that email already exists.' });
+    if (exists) return sendJson(res, 409, { error: 'You have already registered this account. Please sign in instead.' });
     const info = db.prepare('INSERT INTO users (name, email, pass_hash, created_at) VALUES (?,?,?,?)')
       .run(name, email, hashPassword(pw), Date.now());
     const uid = Number(info.lastInsertRowid);

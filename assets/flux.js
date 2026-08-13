@@ -115,7 +115,14 @@
           <button class="btn" id="tbExport">${I.download} Export report</button>
           <button class="icon-btn" id="tbSearch" title="Search (Ctrl+K)">${I.search}</button>
           <button class="icon-btn" id="tbTheme" title="Theme"><svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z" stroke-linejoin="round"/></svg><svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke-linecap="round"/></svg></button>
-          <div class="avatar">${avatarUrl ? `<img src="${avatarUrl}" alt="" style="width:100%;height:100%;object-fit:cover">` : escapeHtml(initials)}</div>
+          <div class="profile-wrap">
+            <button class="avatar" id="tbProfile" aria-label="Account menu" aria-haspopup="true">${avatarUrl ? `<img src="${avatarUrl}" alt="" style="width:100%;height:100%;object-fit:cover">` : escapeHtml(initials)}</button>
+            <div class="profile-menu" id="tbProfileMenu">
+              <div class="pm-head"><div class="pm-name">${escapeHtml(user.name || 'Account')}</div><div class="pm-email">${escapeHtml(user.email || '')}</div></div>
+              <a class="pm-item" href="dashboard.html">${I.grid}Dashboard</a>
+              <button class="pm-item danger" id="tbLogout">${I.logout}Log out</button>
+            </div>
+          </div>
         </div>`;
       top.querySelector('#tbSearch').addEventListener('click', openShellSearch);
       top.querySelector('#tbTheme').addEventListener('click', toggleTheme);
@@ -123,6 +130,11 @@
         if (typeof window.onExportReport === 'function') window.onExportReport();
         else window.print();
       });
+      const pMenu = top.querySelector('#tbProfileMenu');
+      top.querySelector('#tbProfile').addEventListener('click', (e) => { e.stopPropagation(); pMenu.classList.toggle('open'); });
+      top.querySelector('#tbLogout').addEventListener('click', async () => { try { await fetch('/api/logout', { method: 'POST' }); } catch {} location.href = '/login.html'; });
+      document.addEventListener('click', () => pMenu.classList.remove('open'));
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') pMenu.classList.remove('open'); });
     }
     return user;
   }

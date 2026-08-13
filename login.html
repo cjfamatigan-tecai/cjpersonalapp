@@ -227,7 +227,18 @@
           body: JSON.stringify(payload),
         });
         const data = await r.json().catch(() => ({}));
-        if (!r.ok) { fail(data.error || 'Something went wrong.'); return; }
+        if (!r.ok) {
+          // duplicate signup → keep the email and flip to sign-in for a smooth recovery
+          if (mode === 'signup' && r.status === 409) {
+            const keepEmail = $('email').value;
+            setMode('login');
+            $('email').value = keepEmail;
+            fail(data.error || 'You have already registered this account. Please sign in instead.');
+          } else {
+            fail(data.error || 'Something went wrong.');
+          }
+          return;
+        }
         // save the chosen profile photo (session cookie is set by signup)
         if (mode === 'signup' && avatarDataUrl) {
           try { await fetch('/api/prefs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { avatar: avatarDataUrl } }) }); } catch {}

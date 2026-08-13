@@ -92,8 +92,20 @@ body::before {
 #tbTheme svg { animation:themeIconIn .35s ease; }
 @keyframes themeIconIn { from { transform:rotate(-90deg) scale(.4); opacity:0; } to { transform:none; opacity:1; } }
 @media (prefers-reduced-motion: reduce) { #tbTheme svg { animation:none; } }
-.avatar { width:44px; height:44px; border-radius:50%; overflow:hidden; border:2px solid var(--card); box-shadow:var(--shadow-sm); background:var(--dark-2); color:var(--on-dark); display:grid; place-items:center; font-weight:800; font-size:15px; letter-spacing:.02em; flex:none; }
+.avatar { width:44px; height:44px; border-radius:50%; overflow:hidden; border:2px solid var(--card); box-shadow:var(--shadow-sm); background:var(--dark-2); color:var(--on-dark); display:grid; place-items:center; font-weight:800; font-size:15px; letter-spacing:.02em; flex:none; padding:0; cursor:pointer; transition:transform .15s; }
+.avatar:hover { transform:translateY(-1px); }
 .avatar img { width:100%; height:100%; object-fit:cover; }
+/* shell profile dropdown */
+.profile-wrap { position:relative; }
+.profile-menu { position:absolute; top:calc(100% + 10px); right:0; z-index:60; min-width:220px; background:var(--card); border:1px solid var(--card-bord); border-radius:16px; box-shadow:var(--shadow); padding:8px; display:none; flex-direction:column; }
+.profile-menu.open { display:flex; }
+.profile-menu .pm-head { padding:10px 12px 12px; border-bottom:1px solid var(--card-bord); margin-bottom:6px; }
+.profile-menu .pm-name { font-weight:800; font-size:14.5px; letter-spacing:-.01em; color:var(--ink); }
+.profile-menu .pm-email { font-size:12px; color:var(--muted); font-weight:600; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.profile-menu .pm-item { display:flex; align-items:center; gap:11px; width:100%; text-align:left; border:none; background:none; font-family:inherit; font-weight:600; font-size:14px; color:var(--ink-2); padding:11px 12px; border-radius:11px; cursor:pointer; text-decoration:none; transition:background .15s, color .15s; }
+.profile-menu .pm-item svg { width:17px; height:17px; flex:none; }
+.profile-menu .pm-item:hover { background:var(--bg-1); color:var(--ink); }
+.profile-menu .pm-item.danger { color:var(--down); }
 
 /* ---------- grid + cards ---------- */
 .grid { display:grid; gap:22px; }
