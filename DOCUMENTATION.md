@@ -58,6 +58,10 @@ Flux is a monochrome, multi-user productivity dashboard. **Zero npm dependencies
   otherwise it's logged to the server console and shown on the forgot page over http (localhost/demo).
 - **Demo account:** `demo@flux.app` / `fluxdemo123`, auto-recreated on every server boot (disable with
   `SEED_DEMO=0`). Survives the free-tier database being wiped.
+- **Roles:** every user has a role — **admin** or **customer** (default). The owner email
+  (`ADMIN_EMAIL`, default `cjfamatigan@gmail.com`) is made **admin** on signup (and promoted on login
+  if needed); everyone else is a **customer**. Admins see an "Admin" badge and a **Manage users**
+  item in the profile menu that lists everyone who has registered (`GET /api/admin/users`, admin-only).
 
 ## Personal dashboard features
 - Stat tiles (Overall Information), animated Weekly-progress area chart, Month-progress rings.
@@ -113,8 +117,10 @@ Auth: `POST /api/signup|login|logout|forgot|reset`, `GET/PATCH /api/me`, `POST /
 `GET/PUT /api/prefs`, Slack: `GET /api/slack/status`, `POST /api/slack/connect|disconnect|test|notify`.
 
 ## Deployment
-Node host (Render/Railway). `render.yaml` (free tier), `.node-version` (24), `DB_PATH` for a
-persistent disk. See `DEPLOY.md`. Live: https://flux-rhwx.onrender.com
+Node host (Render/Railway). `render.yaml` now uses a **Starter instance + 1 GB persistent disk**
+(`DB_PATH=/data/flux.db`) so accounts survive redeploys/sleep, and declares `RESEND_API_KEY`
+(set its value in the dashboard) so verification codes email for real. `.node-version` pins Node 24.
+See `DEPLOY.md`. Live: https://flux-rhwx.onrender.com
 
 ## Known limitations
 | Area | Limitation |
@@ -125,4 +131,4 @@ persistent disk. See `DEPLOY.md`. Live: https://flux-rhwx.onrender.com
 | Slack "Settings" (shell) | Business-dashboard profile menu links to the personal dashboard for full Settings |
 
 ---
-_Last updated: 2026-08-14 — password reset now uses a 6-digit email verification code (forgot → code → reset); added clickable profile menu to the business dashboards and a clearer duplicate-signup message._
+_Last updated: 2026-08-14 — added admin/customer roles (owner email is admin) with an admin "Manage users" panel; login rate-limiter now counts only failed attempts; render.yaml switched to a persistent disk + Resend email key; password reset uses a 6-digit email code._

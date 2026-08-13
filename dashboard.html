@@ -191,6 +191,14 @@
     .profile-menu.open { display: flex; animation: fx-fade .16s ease; }
     .pm-head { padding: 10px 12px 12px; border-bottom: 1px solid var(--card-bord); margin-bottom: 6px; }
     .pm-name { font-weight: 800; font-size: 14.5px; letter-spacing: -.01em; }
+    .pm-role { display: inline-block; margin-top: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--card); background: var(--ink); padding: 3px 9px; border-radius: 20px; }
+    .u-row { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--card-bord); border-radius: 14px; background: var(--bg-1); }
+    .u-row .u-av { width: 36px; height: 36px; border-radius: 50%; background: var(--dark-2); color: var(--on-dark); display: grid; place-items: center; font-weight: 800; font-size: 13px; flex: none; }
+    .u-row .u-main { flex: 1; min-width: 0; }
+    .u-row .u-name { font-weight: 700; font-size: 14px; }
+    .u-row .u-email { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .u-badge { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--card-bord); color: var(--muted); }
+    .u-badge.admin { background: var(--ink); color: var(--card); border-color: var(--ink); }
     .pm-email { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .pm-item { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; border: none; background: none; font-family: inherit; font-weight: 600; font-size: 14px; color: var(--ink-2); padding: 11px 12px; border-radius: 11px; cursor: pointer; transition: background .15s, color .15s; }
     .pm-item svg { width: 17px; height: 17px; flex: none; }
@@ -483,7 +491,8 @@
           <div class="profile-wrap">
             <button class="avatar" id="profileBtn" aria-label="Account menu" aria-haspopup="true"><span id="avatarInitials"></span></button>
             <div class="profile-menu" id="profileMenu">
-              <div class="pm-head"><div class="pm-name" id="pmName">—</div><div class="pm-email" id="pmEmail"></div></div>
+              <div class="pm-head"><div class="pm-name" id="pmName">—</div><div class="pm-email" id="pmEmail"></div><span class="pm-role" id="pmRole" style="display:none">Admin</span></div>
+              <button class="pm-item" id="pmUsers" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0112 0M16 5a3 3 0 010 6M18.5 20a6 6 0 00-3-5.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Manage users</button>
               <button class="pm-item" id="pmSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.79 1.17V21a2 2 0 11-4 0v-.09A1.65 1.65 0 006 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 8.6a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.31.22.65.22 1z"/></svg>Settings</button>
               <button class="pm-item danger" id="pmLogout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 12H4m0 0l4-4m-4 4l4 4M14 4h4a2 2 0 012 2v12a2 2 0 01-2 2h-4" stroke-linecap="round" stroke-linejoin="round"/></svg>Log out</button>
             </div>
@@ -710,6 +719,14 @@
     <div class="modal">
       <div class="modal-head"><h2>Archived tasks</h2><button class="modal-close" id="archiveClose" aria-label="Close">✕</button></div>
       <div class="arch-list" id="archList"></div>
+    </div>
+  </div>
+
+  <!-- Users modal (admin only) -->
+  <div class="modal-overlay" id="usersModal">
+    <div class="modal">
+      <div class="modal-head"><h2>Users <span class="card-sub" id="usersCount" style="font-weight:600"></span></h2><button class="modal-close" id="usersClose" aria-label="Close">✕</button></div>
+      <div class="arch-list" id="usersList"></div>
     </div>
   </div>
 
@@ -1093,6 +1110,32 @@
     document.addEventListener('click', () => profileMenu.classList.remove('open'));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') profileMenu.classList.remove('open'); });
 
+    /* ---------- ADMIN: USERS PANEL ---------- */
+    const usersModal = document.getElementById('usersModal');
+    function closeUsers() { usersModal.classList.remove('open'); }
+    async function openUsers() {
+      profileMenu.classList.remove('open');
+      usersModal.classList.add('open');
+      const list = document.getElementById('usersList');
+      list.innerHTML = `<div class="arch-empty">Loading…</div>`;
+      try {
+        const { users } = await api('/admin/users');
+        document.getElementById('usersCount').textContent = users.length ? `(${users.length})` : '';
+        list.innerHTML = users.map(u => {
+          const inits = (u.name || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase() || '?';
+          return `<div class="u-row"><div class="u-av">${inits}</div><div class="u-main"><div class="u-name"></div><div class="u-email"></div></div><span class="u-badge ${u.role === 'admin' ? 'admin' : ''}">${u.role}</span></div>`;
+        }).join('');
+        list.querySelectorAll('.u-row').forEach((row, i) => {
+          row.querySelector('.u-name').textContent = users[i].name;
+          row.querySelector('.u-email').textContent = users[i].email;
+        });
+      } catch (e) { list.innerHTML = `<div class="arch-empty">Couldn't load users.</div>`; }
+    }
+    document.getElementById('pmUsers').addEventListener('click', openUsers);
+    document.getElementById('usersClose').addEventListener('click', closeUsers);
+    usersModal.addEventListener('click', (e) => { if (e.target === usersModal) closeUsers(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeUsers(); });
+
     /* ---------- THEME ---------- */
     const root = document.documentElement;
     const saved = localStorage.getItem('flux-theme');
@@ -1336,6 +1379,7 @@
         const first = (user.name || '').split(' ')[0] || 'there';
         document.getElementById('greeting').textContent = `Hi, ${first}! 👋`;
         document.getElementById('avatarInitials').textContent = initialsOf(user.name);
+        if (user.role === 'admin') { document.getElementById('pmRole').style.display = 'inline-block'; document.getElementById('pmUsers').style.display = 'flex'; }
         try { applyState(await api('/state')); renderProjects(); await loadPrefs(); } catch (e) {}
       } else {
         // public demo — not signed in: show the dashboard fully populated with sample data

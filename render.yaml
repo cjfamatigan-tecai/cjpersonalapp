@@ -1,20 +1,24 @@
-# Render Blueprint — FREE tier (zero cost).
-# No persistent disk: the SQLite database is ephemeral (resets on each redeploy) and the
-# instance sleeps when idle. Great for a demo. To make data persistent later, switch
-# plan to "starter" and add a disk (see DEPLOY.md) — data survives restarts then.
+# Render Blueprint — persistent data + real reset emails.
+# A 1 GB disk keeps the SQLite database across redeploys/sleep (requires a paid instance).
+# RESEND_API_KEY (set its value in the Render dashboard) makes verification codes email for real.
 services:
   - type: web
     name: flux
     runtime: node
-    plan: free
+    plan: starter          # a persistent disk requires a paid instance (Starter ~$7/mo)
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /login.html
     envVars:
       - key: NODE_VERSION
         value: "24"
-      # --- optional: real password-reset emails ---
-      # - key: RESEND_API_KEY
-      #   sync: false                       # set the value in the dashboard (kept out of git)
+      - key: DB_PATH
+        value: /data/flux.db        # database lives on the persistent disk below
+      - key: RESEND_API_KEY
+        sync: false                 # paste your key from resend.com in the dashboard (kept out of git)
       # - key: FLUX_MAIL_FROM
-      #   value: "Flux <no-reply@yourdomain.com>"
+      #   value: "Flux <no-reply@yourdomain.com>"   # optional; defaults to Resend's onboarding sender
+    disk:
+      name: flux-data
+      mountPath: /data
+      sizeGB: 1

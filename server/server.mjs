@@ -98,8 +98,12 @@ db.exec(`
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 `);
-// migration: add tasks.archived to existing databases (no-op if it already exists)
+// migrations for existing databases (no-op if the column already exists)
 try { db.exec('ALTER TABLE tasks ADD COLUMN archived INTEGER NOT NULL DEFAULT 0'); } catch {}
+try { db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'customer'"); } catch {}
+
+// the owner account gets the admin role; everyone else is a customer
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'cjfamatigan@gmail.com').toLowerCase();
 
 /* ---------------- crypto helpers ---------------- */
 function hashPassword(pw) {
@@ -127,7 +131,7 @@ function createSession(userId) {
 function getUserByToken(token) {
   if (!token) return null;
   const row = db.prepare(`
-    SELECT u.id, u.name, u.email FROM sessions s
+    SELECT u.id, u.name, u.email, u.role FROM sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.token = ? AND s.expires_at > ?`).get(token, Date.now());
   return row || null;
@@ -367,12 +371,13 @@ async function handleApi(req, res, url) {
     if (!validPw(pw)) return sendJson(res, 400, { error: 'Password must be at least 8 characters.' });
     const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
     if (exists) return sendJson(res, 409, { error: 'You have already registered this account. Please sign in instead.' });
-    const info = db.prepare('INSERT INTO users (name, email, pass_hash, created_at) VALUES (?,?,?,?)')
-      .run(name, email, hashPassword(pw), Date.now());
+    const role = email === ADMIN_EMAIL ? 'admin' : 'customer';
+    const info = db.prepare('INSERT INTO users (name, email, pass_hash, created_at, role) VALUES (?,?,?,?,?)')
+      .run(name, email, hashPassword(pw), Date.now(), role);
     const uid = Number(info.lastInsertRowid);
     seedUser(uid);
     const { token, expires } = createSession(uid);
-    return sendJson(res, 201, { user: { id: uid, name, email } }, sessionCookie(req, token, expires));
+    return sendJson(res, 201, { user: { id: uid, name, email, role } }, sessionCookie(req, token, expires));
   }
 
   if (route === '/login') {
@@ -388,8 +393,11 @@ async function handleApi(req, res, url) {
       return sendJson(res, 401, { error: 'Invalid email or password.' });
     }
     clearLoginFails(rlKey); // successful login resets the counter
+    // safety net: ensure the owner email always has the admin role
+    let role = user.role || 'customer';
+    if (user.email === ADMIN_EMAIL && role !== 'admin') { db.prepare('UPDATE users SET role=? WHERE id=?').run('admin', user.id); role = 'admin'; }
     const { token, expires } = createSession(user.id);
-    return sendJson(res, 200, { user: { id: user.id, name: user.name, email: user.email } }, sessionCookie(req, token, expires));
+    return sendJson(res, 200, { user: { id: user.id, name: user.name, email: user.email, role } }, sessionCookie(req, token, expires));
   }
 
   if (route === '/logout') {
@@ -454,7 +462,13 @@ async function handleApi(req, res, url) {
     const name = clean(b.name);
     if (!name) return sendJson(res, 400, { error: 'Name is required.' });
     db.prepare('UPDATE users SET name=? WHERE id=?').run(name, me.id);
-    return sendJson(res, 200, { user: { id: me.id, name, email: me.email } });
+    return sendJson(res, 200, { user: { id: me.id, name, email: me.email, role: me.role } });
+  }
+  // admin only: list everyone who has registered
+  if (route === '/admin/users' && method === 'GET') {
+    if (me.role !== 'admin') return sendJson(res, 403, { error: 'Admin only.' });
+    const users = db.prepare('SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC').all();
+    return sendJson(res, 200, { users });
   }
   if (route === '/password' && method === 'POST') {
     let b; try { b = await readJson(req); } catch (e) { return sendJson(res, 400, { error: e.message }); }
