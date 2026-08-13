@@ -83,13 +83,14 @@
         const data = await r.json().catch(() => ({}));
         msg.className = 'msg ok';
         msg.textContent = 'If an account exists for that email, a verification code has been sent.';
-        // show the "enter code" button, carrying the email to the reset page
+        // show the "enter code" button, carrying the email (and code, if not emailed) to the reset page
         const cont = $('continueBtn');
-        cont.href = 'reset.html?email=' + encodeURIComponent(email);
+        cont.href = 'reset.html?email=' + encodeURIComponent(email) + (data.devCode ? '&code=' + encodeURIComponent(data.devCode) : '');
         cont.style.display = 'block';
         if (data.devCode) {
+          msg.textContent = 'Email delivery is not set up yet — use the code below to reset your password.';
           const dl = $('devlink'); dl.classList.add('show');
-          dl.innerHTML = 'No email service is configured, so here is your code for this demo:<br><b style="font-size:20px;letter-spacing:4px">' + data.devCode + '</b>';
+          dl.innerHTML = 'Your verification code:<br><b style="font-size:24px;letter-spacing:6px">' + data.devCode + '</b>';
         }
       } catch { msg.className = 'msg err'; msg.textContent = 'Network error. Is the server running?'; }
       finally { btn.disabled = false; btn.textContent = 'Send verification code'; }

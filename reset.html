@@ -84,9 +84,11 @@
       localStorage.setItem('flux-theme', next);
     });
     const $ = id => document.getElementById(id);
-    // prefill email from the ?email= param (carried from the forgot page)
-    const qEmail = new URLSearchParams(location.search).get('email') || '';
-    if (qEmail) { $('email').value = qEmail; $('code').focus(); }
+    // prefill email + code from the query params (carried from the forgot page)
+    const params = new URLSearchParams(location.search);
+    const qEmail = params.get('email') || '', qCode = (params.get('code') || '').replace(/\D/g, '').slice(0, 6);
+    if (qEmail) $('email').value = qEmail;
+    if (qCode) { $('code').value = qCode; $('pw').focus(); } else if (qEmail) { $('code').focus(); }
     $('code').addEventListener('input', () => { $('code').value = $('code').value.replace(/\D/g, '').slice(0, 6); });
     $('form').addEventListener('submit', async (e) => {
       e.preventDefault();

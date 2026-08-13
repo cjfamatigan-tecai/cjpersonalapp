@@ -447,8 +447,10 @@ async function handleApi(req, res, url) {
         <p style="color:#9a9ba0;font-size:13px">If you didn't request this, you can safely ignore this email.</p></div>`;
       const emailed = emailConfigured() ? await sendEmail({ to: email, subject: `Your Flux code: ${code}`, html }) : false;
       console.log(`[reset code] ${email} -> ${code}${emailed ? ' (emailed)' : ''}`);
-      // if no email service is configured, surface the code over plain http (localhost/demo) only
-      if (!emailed && !isSecure(req)) payload.devCode = code;
+      // if it couldn't be emailed (no provider configured, or send failed), return the code so the
+      // reset still works. Once RESEND_API_KEY is set and delivery succeeds, the code is emailed
+      // instead and never returned here.
+      if (!emailed) payload.devCode = code;
     }
     return sendJson(res, 200, payload);
   }
