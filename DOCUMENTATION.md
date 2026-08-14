@@ -49,6 +49,8 @@ Flux is a monochrome, multi-user productivity dashboard. **Zero npm dependencies
 
 ## Authentication
 - **Sign up:** name, email, password (min 8). Optional profile photo (cropped/compressed client-side).
+  On success a **"Welcome to Flux"** email is sent to the new user (fire-and-forget; delivered when an
+  email provider is configured, and to any recipient once a domain is verified in Resend).
   Duplicate email → **"You have already registered this account. Please sign in instead."** (the login
   page then flips to sign-in with the email preserved).
 - **Sign in / out:** session cookie; logout clears it.

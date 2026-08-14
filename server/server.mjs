@@ -396,6 +396,19 @@ async function handleApi(req, res, url) {
       .run(name, email, hashPassword(pw), Date.now(), role);
     const uid = Number(info.lastInsertRowid);
     seedUser(uid);
+    // welcome email (fire-and-forget so it never slows down signup; no-op if email isn't configured)
+    const origin = `${isSecure(req) ? 'https' : 'http'}://${req.headers.host}`;
+    const safeName = String(name).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    sendEmail({
+      to: email,
+      subject: 'Welcome to Flux',
+      html: `<div style="font-family:system-ui,sans-serif;max-width:480px">
+        <h2 style="font-weight:800">Welcome to Flux 🎉</h2>
+        <p>Hi ${safeName},</p>
+        <p>Your account is ready. You can now manage your tasks, goals, calendar, statistics and documents — all in one secure workspace.</p>
+        <p><a href="${origin}/login.html" style="display:inline-block;background:#17181a;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:12px">Open Flux</a></p>
+        <p style="color:#9a9ba0;font-size:13px">If you didn't create this account, you can safely ignore this email.</p></div>`,
+    }).catch(() => {});
     const { token, expires } = createSession(uid);
     return sendJson(res, 201, { user: { id: uid, name, email, role } }, sessionCookie(req, token, expires));
   }
