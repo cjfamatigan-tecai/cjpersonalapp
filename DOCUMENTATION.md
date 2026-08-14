@@ -57,9 +57,12 @@ Flux is a monochrome, multi-user productivity dashboard. **Zero npm dependencies
 - **Forgot / reset (verification code):** on `forgot.html` the user enters their email and Flux emails
   a **6-digit code** (15-min expiry, max 5 attempts, single-use). On `reset.html` they enter email +
   code + new password to change it. If `RESEND_API_KEY`/`SENDGRID_API_KEY` is set the code is emailed;
-  if it can't be emailed (no key, or send failed) the code is returned and shown on the forgot page so
-  the reset still works — and it's carried into the reset page automatically. (Add a Resend key so codes
-  go to real inboxes; until then the on-screen code is a demo fallback.)
+  if it can't be emailed (no provider, or send failed) the code is returned and shown on the forgot page so
+  the reset still works — and it's carried into the reset page automatically.
+- **Email providers:** set **`GMAIL_USER` + `GMAIL_APP_PASSWORD`** (Gmail SMTP — sends to ANY recipient,
+  no domain needed; uses nodemailer), or `RESEND_API_KEY`/`SENDGRID_API_KEY` (needs a verified domain to
+  email non-owner addresses). Gmail takes priority when configured. The welcome and reset-code emails
+  use the same sender.
 - **Demo account:** `demo@flux.app` / `fluxdemo123`, auto-recreated on every server boot (disable with
   `SEED_DEMO=0`). Survives the free-tier database being wiped.
 - **Roles:** every user has a role — **admin** or **customer** (default). The owner email

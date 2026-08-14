@@ -11,6 +11,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
+import nodemailer from 'nodemailer';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');          // serves the CJ-WebPort folder
@@ -270,15 +271,35 @@ async function postToSlack(webhook, text) {
   } catch { return false; } finally { clearTimeout(t); }
 }
 
-/* ---------------- email (HTTP APIs — no dependencies) ----------------
-   Configure with env vars:
-     RESEND_API_KEY   (https://resend.com)   — or —   SENDGRID_API_KEY
-     FLUX_MAIL_FROM   e.g. "Flux <no-reply@yourdomain.com>"
-   With none set, the reset link falls back to the server console / localhost.
+/* ---------------- email ----------------
+   Choose ONE provider via env vars:
+     GMAIL_USER + GMAIL_APP_PASSWORD   — Gmail SMTP, sends to ANY recipient, no domain needed
+     RESEND_API_KEY   (https://resend.com)   — or —   SENDGRID_API_KEY   (needs a verified domain for others)
+     FLUX_MAIL_FROM   e.g. "Flux <no-reply@yourdomain.com>"  (ignored for Gmail — Gmail uses your address)
+   With none set, reset codes fall back to the server console / on-screen.
 --------------------------------------------------------------------- */
 const MAIL_FROM = process.env.FLUX_MAIL_FROM || 'Flux <onboarding@resend.dev>';
-const emailConfigured = () => !!(process.env.RESEND_API_KEY || process.env.SENDGRID_API_KEY);
+const gmailReady = () => !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+const emailConfigured = () => gmailReady() || !!(process.env.RESEND_API_KEY || process.env.SENDGRID_API_KEY);
+let gmailTransport = null;
+function getGmailTransport() {
+  if (!gmailTransport) {
+    gmailTransport = nodemailer.createTransport({
+      host: 'smtp.gmail.com', port: 465, secure: true,
+      auth: { user: process.env.GMAIL_USER, pass: (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '') },
+      connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
+    });
+  }
+  return gmailTransport;
+}
 async function sendEmail({ to, subject, html }) {
+  // Gmail SMTP — delivers to any recipient (sender is your Gmail; app password required)
+  if (gmailReady()) {
+    try {
+      await getGmailTransport().sendMail({ from: `Flux <${process.env.GMAIL_USER}>`, to, subject, html });
+      return true;
+    } catch (e) { console.log('[email] gmail send failed:', e && e.message); return false; }
+  }
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
   try {
